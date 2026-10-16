@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">{{ app_name }}</a>
+    <nav>
+      {% if user %}
+        <span class="who">{{ user.name }} <span class="badge badge-{{ user.role.value }}">{{ user.role.value }}</span></span>
+        <a href="/dashboard">Dashboard</a>
+        <form method="post" action="/logout" class="inline"><button class="link">Log out</button></form>
+      {% else %}
+        <a href="/login">Log in</a>
+        <a class="btn btn-small" href="/signup">Sign up</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="container">
+    {% for category, message in get_flashed_messages(request) %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · {{ app_name }}{% endblock %}
+{% block content %}
+{% if user.is_teacher %}
+<section class="card">
+  <h2>Upload a lecture</h2>
+  <form id="upload-form" method="post" action="/lectures" enctype="multipart/form-data" class="stack">
+    <label>Title <input name="title" required maxlength="200"></label>
+    <label>Description <span class="muted">(optional)</span><textarea name="description" rows="2"></textarea></label>
+    <label>Video or audio file
+      <input type="file" name="file" accept="{{ accept }},video/*,audio/*" required>
+      <small class="muted">Max {{ max_upload_mb }} MB.</small>
+    </label>
+    <progress id="upload-progress" max="100" value="0" hidden></progress>
+    <button class="btn" id="upload-btn">Upload &amp; transcribe</button>
+  </form>
+</section>
+{% endif %}
+
+<section>
+  <h2>{% if user.is_teacher %}Your lectures{% else %}Lectures{% endif %}</h2>
+  {% if lectures %}
+  <ul class="lecture-list">
+    {% for l in lectures %}
+    <li class="card lecture-item">
+      <a href="/lectures/{{ l.id }}" class="lecture-title">{{ l.title }}</a>
+      <div class="meta">
+        <span class="badge">{{ l.media_type.value }}</span>
+        {% if l.duration %}<span>{{ l.duration | timestamp }}</span>{% endif %}
+        {% if not user.is_teacher %}<span>by {{ l.teacher.name }}</span>{% endif %}
+        <span>{{ l.created_at.strftime('%d %b %Y') }}</span>
+        {% if user.is_teacher %}<span class="status status-{{ l.status.value }}">{{ l.status.value | replace('_', ' ') }}</span>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="muted">{% if user.is_teacher %}You haven't uploaded any lectures yet.{% else %}No lectures are available yet.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if user.is_teacher %}
+<script>
+// Upload with a progress bar (large lecture videos can take a while).
+const form = document.getElementById("upload-form");
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const bar = document.getElementById("upload-progress");
+  const btn = document.getElementById("upload-btn");
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", form.action);
+  xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) bar.value = (ev.loaded / ev.total) * 100; };
+  xhr.onload = () => { window.location.href = xhr.responseURL || "/dashboard"; };
+  xhr.onerror = () => {
+    btn.disabled = false;
+    btn.textContent = "Upload & transcribe";
+    alert("Upload failed. Please try again.");
+  };
+  bar.hidden = false;
+  btn.disabled = true;
+  btn.textContent = "Uploading…";
+  xhr.send(new FormData(form));
+});
+</script>
+{% endif %}
+{% endblock %}

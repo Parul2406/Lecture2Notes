@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ lecture.title }} · {{ app_name }}{% endblock %}
+{% block content %}
+<a href="/dashboard" class="muted">&larr; Back</a>
+<div class="lecture-header">
+  <div>
+    <h1>{{ lecture.title }}</h1>
+    <p class="muted">by {{ lecture.teacher.name }} · {{ lecture.created_at.strftime('%d %b %Y') }}
+      {% if lecture.duration %}· {{ lecture.duration | timestamp }}{% endif %}</p>
+    {% if lecture.description %}<p>{{ lecture.description }}</p>{% endif %}
+  </div>
+  {% if user.is_teacher %}
+  <div class="actions">
+    {% if lecture.status.value == 'failed' %}
+      <form method="post" action="/lectures/{{ lecture.id }}/retry" class="inline"><button class="btn btn-small">Retry</button></form>
+    {% endif %}
+    {% if not lecture.status.is_processing %}
+      <form method="post" action="/lectures/{{ lecture.id }}/delete" class="inline"
+            onsubmit="return confirm('Delete this lecture and its transcript?');">
+        <button class="btn btn-small btn-danger">Delete</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="player card">
+  {% if lecture.media_type.value == 'video' %}
+    <video id="player" controls preload="metadata" src="/lectures/{{ lecture.id }}/media"></video>
+  {% else %}
+    <audio id="player" controls preload="metadata" src="/lectures/{{ lecture.id }}/media"></audio>
+  {% endif %}
+</div>
+
+{% if lecture.status.is_processing %}
+<section class="card" id="processing" data-status-url="/api/lectures/{{ lecture.id }}/status">
+  <h2>Processing</h2>
+  <p>Status: <strong id="status-text">{{ lecture.status.value | replace('_', ' ') }}</strong></p>
+  <progress id="status-progress" max="1" value="{{ lecture.progress }}"></progress>
+  <p class="muted">This page refreshes automatically when the transcript is ready.</p>
+</section>
+{% elif lecture.status.value == 'failed' %}
+<section class="card">
+  <h2>Processing failed</h2>
+  <pre class="error">{{ lecture.error }}</pre>
+</section>
+{% elif lecture.transcript %}
+<section class="card">
+  <div class="transcript-head">
+    <h2>Transcript</h2>
+    <span class="muted">{{ lecture.transcript.segments | length }} segments · language: {{ lecture.transcript.language }}
+      · <a href="/api/lectures/{{ lecture.id }}/transcript" target="_blank">JSON</a></span>
+  </div>
+  <input type="search" id="transcript-search" placeholder="Search transcript…">
+  <ol class="transcript" id="transcript">
+    {% for seg in lecture.transcript.segments %}
+    <li data-start="{{ seg.start }}" data-end="{{ seg.end }}">
+      <button class="ts" title="Jump to {{ seg.start | timestamp }}">{{ seg.start | timestamp }}</button>
+      <span class="seg-text">{{ seg.text }}</span>
+    </li>
+    {% else %}
+    <li class="muted">No speech was detected in this recording.</li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const player = document.getElementById("player");
+
+// Poll processing status until the transcript is ready.
+const processing = document.getElementById("processing");
+if (processing) {
+  const poll = async () => {
+    try {
+      const r = await fetch(processing.dataset.statusUrl);
+      if (r.ok) {
+        const s = await r.json();
+        document.getElementById("status-text").textContent = s.status.replace("_", " ");
+        document.getElementById("status-progress").value = s.progress;
+        if (s.status === "completed" || s.status === "failed") return window.location.reload();
+      }
+    } catch (e) { /* retry on next tick */ }
+    setTimeout(poll, 3000);
+  };
+  setTimeout(poll, 3000);
+}
+
+// Transcript: click a timestamp to seek, highlight the current segment, filter by search.
+const list = document.getElementById("transcript");
+if (list && player) {
+  const items = [...list.querySelectorAll("li[data-start]")];
+  list.addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-start]");
+    if (!li || !e.target.classList.contains("ts")) return;
+    player.currentTime = parseFloat(li.dataset.start);
+    player.play();
+  });
+  let active = null;
+  player.addEventListener("timeupdate", () => {
+    const t = player.currentTime;
+    const cur = items.find((li) => t >= +li.dataset.start && t < +li.dataset.end);
+    if (cur !== active) {
+      active?.classList.remove("active");
+      cur?.classList.add("active");
+      active = cur;
+    }
+  });
+  document.getElementById("transcript-search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    items.forEach((li) => { li.hidden = q && !li.textContent.toLowerCase().includes(q); });
+  });
+}
+</script>
+{% endblock %}
