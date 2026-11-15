@@ -79,6 +79,22 @@
 </div>
 {% endif %}
 
+{% if is_owner and lecture.redownload_progress is not none %}
+<div class="card redownload-banner" id="redownload" data-status-url="/api/lectures/{{ lecture.id }}/status">
+  <span class="spinner"></span>
+  <div style="flex:1;min-width:0">
+    <strong>Downloading a new copy of the video…</strong>
+    <div class="muted small">The current video, transcript and notes stay as they are until the new copy is complete.</div>
+    <div class="progress" style="margin-top:8px"><div id="redownload-progress" style="width: {{ (lecture.redownload_progress * 100) | round }}%"></div></div>
+  </div>
+  <span class="mono small" id="redownload-pct">{{ (lecture.redownload_progress * 100) | round | int }}%</span>
+  <button class="btn btn-danger btn-sm" type="button" data-stop="redownload">{{ icon("x", "icon-sm") }} Stop</button>
+</div>
+{% elif is_owner and lecture.redownload_error %}
+<div class="alert alert-error" style="margin-bottom:20px">{{ icon("alert", "icon-sm") }}
+  <div><strong>The re-download failed; the current video is unchanged.</strong> {{ lecture.redownload_error }}</div></div>
+{% endif %}
+
 {% if shared and not ready %}
 <div class="card empty">
   <div class="tile-icon">{{ icon("clock") }}</div>
@@ -402,10 +418,10 @@
       </div>
     </div>
   </form>
-  {% if lecture.source_url and not lecture.status.is_processing %}
+  {% if lecture.source_url and not lecture.status.is_processing and lecture.redownload_progress is none %}
   <form method="post" action="/lectures/{{ lecture.id }}/redownload" class="modal-body" style="padding-top:0">
     <div class="redownload">{{ icon("download", "icon-sm") }}
-      <span>Video won't play? Fetch it again in a format every browser supports. The transcript and notes are kept.</span>
+      <span>Video won't play? Fetch a new copy in a format every browser supports. Everything stays as it is until the new copy is complete.</span>
       <button class="btn btn-secondary btn-sm">Re-download</button></div>
   </form>
   {% endif %}
@@ -473,6 +489,24 @@ if (processing) {
     setTimeout(poll, 2000);
   };
   setTimeout(poll, 2000);
+}
+
+// Re-download: poll progress; reload when the new copy is in place (or it stopped/failed).
+const redl = document.getElementById("redownload");
+if (redl) {
+  const pollRedl = async () => {
+    try {
+      const r = await fetch(redl.dataset.statusUrl);
+      if (r.ok) {
+        const s = await r.json();
+        if (s.redownload_progress === null) return window.location.reload();
+        document.getElementById("redownload-progress").style.width = (s.redownload_progress * 100) + "%";
+        document.getElementById("redownload-pct").textContent = Math.round(s.redownload_progress * 100) + "%";
+      }
+    } catch (e) { /* retry */ }
+    setTimeout(pollRedl, 2000);
+  };
+  setTimeout(pollRedl, 2000);
 }
 
 // Notes: poll progress; reload when done.

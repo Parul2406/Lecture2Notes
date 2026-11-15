@@ -17,6 +17,7 @@ def lecture_status(lecture_id: int, user: User = Depends(require_user), db: Sess
         "status": lecture.status.value,
         "progress": round(lecture.progress, 4),
         "error": lecture.error,
+        "redownload_progress": lecture.redownload_progress,
     }
 
 

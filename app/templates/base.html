@@ -10,7 +10,7 @@
     // Light is the default. Dark only when the user has picked it (applied before first paint).
     try { if (localStorage.getItem("ltn-theme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
   </script>
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v=6">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -134,7 +134,8 @@
     const panel = document.getElementById("tasks");
     const list = document.getElementById("tasks-list");
     const STAGES = { downloading: "Downloading", uploaded: "Queued", extracting_audio: "Extracting audio",
-      transcribing: "Transcribing", writing_notes: "Writing notes", notes_queued: "Notes queued" };
+      transcribing: "Transcribing", writing_notes: "Writing notes", notes_queued: "Notes queued",
+      redownloading: "Downloading a new copy" };
     const RESULTS = {
       completed: ["Transcript ready", "success"], failed: ["Processing failed", "error"], cancelled: ["Stopped", "info"],
       notes_completed: ["Notes and quiz ready", "success"], notes_failed: ["Notes failed", "error"], notes_cancelled: ["Notes stopped", "info"],
@@ -167,7 +168,7 @@
             <li>
               <a href="/lectures/${j.lecture_id}" class="task-title">${esc(j.title)}</a>
               <div class="task-meta"><span>${j.stopping ? "Stopping…" : STAGES[j.stage] || j.stage}</span>
-                <span class="mono">${["downloading", "transcribing", "writing_notes"].includes(j.stage) ? Math.round(j.progress * 100) + "%" : ""}</span></div>
+                <span class="mono">${["downloading", "transcribing", "writing_notes", "redownloading"].includes(j.stage) ? Math.round(j.progress * 100) + "%" : ""}</span></div>
               <div class="progress"><div style="width:${Math.max(j.progress * 100, 3)}%"></div></div>
               ${j.stopping ? "" : `<button class="btn btn-ghost btn-sm task-stop" type="button" data-stop-job="${j.kind}" data-lecture="${j.lecture_id}">Stop</button>`}
             </li>`).join("");

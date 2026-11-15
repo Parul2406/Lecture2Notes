@@ -78,6 +78,9 @@ class Lecture(Base):
     original_filename: Mapped[str] = mapped_column(String(255))
     media_path: Mapped[str] = mapped_column(String(500))  # "" until a link import has downloaded
     source_url: Mapped[str | None] = mapped_column(String(2000))  # set when imported from a link
+    # Re-download of a linked video runs beside everything else; the current file is replaced only when it completes.
+    redownload_progress: Mapped[float | None] = mapped_column(Float)  # None = not running, else 0..1
+    redownload_error: Mapped[str | None] = mapped_column(Text)
     thumbnail_path: Mapped[str | None] = mapped_column(String(500))  # JPEG; auto from the video or uploaded
     thumbnail_custom: Mapped[bool | None] = mapped_column(default=False)  # True = teacher chose it; don't overwrite
     # Random token for the public share links (/s/<token>, /s/<token>/quiz); None = not shared

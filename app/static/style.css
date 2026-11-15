@@ -591,3 +591,5 @@ ul.ed-list.card:empty::before { content: "No definitions yet."; color: var(--mut
   .ps { min-width: 120px; }
 }
 .pill-warn { background: var(--highlight); color: #a16207; border-color: transparent; }
+.redownload-banner { display: flex; align-items: center; gap: 14px; padding: 14px 18px; margin-bottom: 20px; border-left: 3px solid var(--accent); }
+.redownload-banner .spinner { width: 16px; height: 16px; }

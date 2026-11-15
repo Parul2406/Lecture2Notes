@@ -182,6 +182,8 @@ def retry_lecture(
     lecture = get_owned_lecture(lecture_id, teacher, db)
     if lecture.status not in (LectureStatus.FAILED, LectureStatus.CANCELLED):
         flash(request, "Only failed or stopped lectures can be restarted.", "error")
+    elif lecture.redownload_progress is not None:
+        flash(request, "Wait for the re-download to finish (or stop it) first.", "error")
     else:
         # Continue from the stage that didn't finish (finished downloads/audio are reused).
         lecture.status = LectureStatus.DOWNLOADING if pipeline.resume_stage(lecture) == "downloading" else LectureStatus.UPLOADED
@@ -239,16 +241,20 @@ def delete_lecture(
     lecture_id: int, request: Request, teacher: User = Depends(require_teacher), db: Session = Depends(get_db)
 ):
     lecture = get_owned_lecture(lecture_id, teacher, db)
-    if lecture.status.is_processing:
-        flash(request, "Wait for processing to finish before deleting this lecture.", "error")
+    if lecture.status.is_processing or lecture.redownload_progress is not None:
+        flash(request, "Wait for processing to finish (or stop it) before deleting this lecture.", "error")
         return _redirect(f"/lectures/{lecture.id}")
 
     files = [lecture.media_path, lecture.audio_path, lecture.thumbnail_path]
+    files += [str(f) for f in settings.uploads_dir.glob(f"lecture_{lecture.id}_*")]  # partial/old downloads
     title = lecture.title
     db.delete(lecture)
     db.commit()
     for f in files:
         if f:
-            Path(f).unlink(missing_ok=True)
+            try:
+                Path(f).unlink(missing_ok=True)
+            except OSError:
+                pass  # still open (e.g. being streamed); removed on the next start by the orphan cleanup
     flash(request, f"Deleted “{title}”.", "info")
     return _redirect("/dashboard")

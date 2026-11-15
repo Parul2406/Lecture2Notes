@@ -65,6 +65,82 @@ def load_wav(path: Path) -> np.ndarray:
     return np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
 
 
+class TranscriptionError(Exception):
+    pass
+
+
+def _child_main(audio_path: str, data_conn, ctrl_conn) -> None:
+    """Runs in a separate process: transcribe and send progress/result back to the server."""
+    # Exit as soon as the server goes away or asks us to stop (the control pipe closes or gets a message),
+    # so a killed or restarted server never leaves Whisper running in the background.
+    def watchdog():
+        try:
+            ctrl_conn.recv()
+        except (EOFError, OSError):
+            pass
+        os._exit(0)
+
+    threading.Thread(target=watchdog, daemon=True).start()
+    try:
+        result = transcribe(Path(audio_path), on_progress=lambda p: data_conn.send(("progress", p)))
+        data_conn.send(("result", result))
+    except Exception as exc:  # noqa: BLE001 - report every failure to the parent
+        data_conn.send(("error", f"{exc.__class__.__name__}: {exc}"))
+
+
+def transcribe_killable(
+    audio_path: Path,
+    on_progress: Callable[[float], None] | None = None,
+    check_stop: Callable[[], None] | None = None,
+) -> dict:
+    """Run transcribe() in a child process so a stop request ends it immediately.
+
+    Whisper can spend minutes on one stretch of audio without yielding a segment, so checking for
+    "stop" between segments isn't enough. Here the parent polls check_stop() every quarter second
+    and terminates the child when it raises. Loading the model again per job costs a few seconds.
+    """
+    import multiprocessing as mp
+
+    ctx = mp.get_context("spawn")
+    data_parent, data_child = ctx.Pipe(duplex=False)
+    ctrl_child, ctrl_parent = ctx.Pipe(duplex=False)
+    proc = ctx.Process(target=_child_main, args=(str(audio_path), data_child, ctrl_child),
+                       name="whisper", daemon=True)
+    proc.start()
+    data_child.close()
+    ctrl_child.close()
+    try:
+        while True:
+            if check_stop:
+                check_stop()  # raises -> finally kills the child
+            if data_parent.poll(0.25):
+                try:
+                    kind, payload = data_parent.recv()
+                except EOFError:
+                    raise TranscriptionError(f"The transcription process exited unexpectedly (code {proc.exitcode}).")
+                if kind == "progress":
+                    if on_progress:
+                        on_progress(payload)
+                elif kind == "result":
+                    return payload
+                else:
+                    raise TranscriptionError(payload)
+            elif not proc.is_alive() and not data_parent.poll():
+                raise TranscriptionError(f"The transcription process exited unexpectedly (code {proc.exitcode}).")
+    finally:
+        if proc.is_alive():
+            try:
+                ctrl_parent.send("stop")
+            except OSError:
+                pass
+            proc.join(timeout=2)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=5)
+        ctrl_parent.close()
+        data_parent.close()
+
+
 def transcribe(audio_path: Path, on_progress: Callable[[float], None] | None = None) -> dict:
     """Run Whisper locally and return a JSON-serialisable transcript with timestamped segments."""
     model = get_model()

@@ -113,7 +113,7 @@ def stop_job(
     teacher: User = Depends(require_teacher), db: Session = Depends(get_db),
 ):
     get_owned_lecture(lecture_id, teacher, db)
-    stopped = worker.stop_notes(lecture_id) if what == "notes" else worker.stop_lecture(lecture_id)
+    stopped = {"notes": worker.stop_notes, "redownload": worker.stop_redownload}.get(what, worker.stop_lecture)(lecture_id)
     if not stopped:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nothing is running for this lecture.")
     return {"ok": True}
@@ -136,6 +136,9 @@ def my_jobs(teacher: User = Depends(require_teacher), db: Session = Depends(get_
                            "stage": l.status.value, "progress": round(l.progress or 0, 4), "stopping": stopping["transcription"]})
         elif recent(l.updated_at) and l.status in (LectureStatus.COMPLETED, LectureStatus.FAILED, LectureStatus.CANCELLED):
             finished.append({"key": f"t{l.id}", "lecture_id": l.id, "title": l.title, "result": l.status.value})
+        if l.redownload_progress is not None:
+            active.append({"key": f"r{l.id}", "lecture_id": l.id, "title": l.title, "kind": "redownload",
+                           "stage": "redownloading", "progress": round(l.redownload_progress, 4), "stopping": stopping["redownload"]})
         n: Notes | None = l.notes
         if n and n.status.is_processing:
             active.append({"key": f"n{l.id}", "lecture_id": l.id, "title": l.title, "kind": "notes",

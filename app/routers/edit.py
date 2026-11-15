@@ -53,20 +53,14 @@ def update_details(
 def redownload(lecture_id: int, request: Request, teacher: User = Depends(require_teacher), db: Session = Depends(get_db)):
     """Fetch the linked video again (e.g. to replace a copy the browser can't play). Transcript and notes are kept."""
     lecture = get_owned_lecture(lecture_id, teacher, db)
-    if not lecture.source_url or lecture.status.is_processing:
-        flash(request, "This lecture can't be re-downloaded right now.", "error")
-        return _redirect(f"/lectures/{lecture.id}")
-    if lecture.media_path:
-        Path(lecture.media_path).unlink(missing_ok=True)
-    for partial in settings.uploads_dir.glob(f"lecture_{lecture.id}_src.*"):
-        partial.unlink(missing_ok=True)
-    lecture.media_path = ""
-    if not lecture.thumbnail_custom:
-        lecture.thumbnail_path = None
-    lecture.status, lecture.progress, lecture.error = LectureStatus.DOWNLOADING, 0.0, None
-    db.commit()
-    worker.enqueue(lecture.id)
-    flash(request, "Downloading the video again.", "success")
+    if not lecture.source_url:
+        flash(request, "Only lectures imported from a link can be re-downloaded.", "error")
+    elif lecture.status.is_processing:
+        flash(request, "Wait for processing to finish (or stop it) before re-downloading.", "error")
+    elif not worker.enqueue_redownload(lecture.id):
+        flash(request, "A re-download is already running.", "info")
+    else:
+        flash(request, "Downloading a new copy. The current video stays until it's complete.", "success")
     return _redirect(f"/lectures/{lecture.id}")
 
 

@@ -9,6 +9,7 @@ import threading
 
 TRANSCRIPTION = "transcription"
 NOTES = "notes"
+REDOWNLOAD = "redownload"
 
 _lock = threading.Lock()
 _requests: set[tuple[str, int]] = set()
