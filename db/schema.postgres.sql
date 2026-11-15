@@ -1,4 +1,4 @@
--- Lecture to Notes: database schema (PostgreSQL)
+-- Lecture2Notes: database schema (PostgreSQL)
 -- Generated from app/models.py. To use Postgres, set e.g.
 --   DATABASE_URL=postgresql+psycopg://user:pass@localhost/lecture_notes
 -- (and `pip install psycopg[binary]`). The app creates these tables on startup,

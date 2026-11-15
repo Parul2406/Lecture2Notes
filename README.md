@@ -1,4 +1,4 @@
-# Lecture to Notes
+# Lecture2Notes
 
 Teachers upload lecture recordings (video or audio) or import them from a link (YouTube, Vimeo, a direct
 `.mp4`/`.mp3` URL, ...). The server extracts the audio with **FFmpeg** and transcribes

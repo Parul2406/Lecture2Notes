@@ -1,4 +1,4 @@
--- Lecture to Notes: database schema (SQLite)
+-- Lecture2Notes: database schema (SQLite)
 -- Generated from app/models.py. The app creates these tables automatically on startup;
 -- this file is for reference or for creating the DB by hand:
 --   sqlite3 data/app.db < db/schema.sql
