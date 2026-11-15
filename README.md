@@ -23,10 +23,20 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env          # optional, every setting has a default
 ollama pull gemma4               # once, for notes (needs Ollama installed)
+python db/seed.py                # optional: demo accounts (safe to re-run)
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000, sign up as a teacher, and add a lecture.
+Open http://127.0.0.1:8000 and log in with a demo account, or sign up, then add a lecture.
+
+**Demo accounts** (from `db/seed.py`, password `test1234`, or `SEED_PASSWORD`):
+
+| Role | Email |
+|---|---|
+| Teacher | `parul@parul.com` |
+| Student | `parul@student.com` |
+
+`python db/seed.py --reset-passwords` sets them back to the demo password.
 
 - **Share links for students on other devices:** the server above only accepts connections from this computer.
   Start it with `--host 0.0.0.0` and open the app through the computer's network address (the Share dialog shows
@@ -157,7 +167,8 @@ timestamped transcript) or **SRT** subtitles (transcript only). Files are named 
 Teachers can change, at any time: the lecture title, description and thumbnail (**Edit**); any transcript line
 (**Edit** on the transcript panel; timestamps stay); and the summary, sections, key points, definitions and quiz in
 the notes editor (`/lectures/{id}/notes/edit`), including writing notes by hand without AI. Link-imported videos that
-won't play can be fetched again with **Edit → Re-download** (the transcript and notes are kept).
+won't play can be fetched again with **Edit → Re-download**: the new copy downloads in the background (with
+progress and Stop), and the current video, stages, transcript and notes stay until it's complete.
 
 Account settings (name, email, password, theme) are at `/settings`.
 
@@ -217,6 +228,7 @@ app/
                      pipeline.py (stages, continue), jobs.py (stop requests), worker.py (background jobs)
   templates/, static/ (style.css, fonts/)
 data/                created at runtime: app.db, uploads/, audio/, thumbnails/, models/
+db/                  seed.py (demo accounts), schema.sql, schema.postgres.sql (reference schemas)
 docs/                project-overview.html (full project documentation)
 ```
 

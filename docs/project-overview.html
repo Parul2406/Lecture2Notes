@@ -368,7 +368,7 @@ ul.tight li { margin: 3px 0; }
 │   ├── templates/           base, index, login, signup, dashboard, settings, quiz,
 │   │                        notes_edit, lectures/detail, partials (_icons, _auth_side)
 │   └── static/              style.css, fonts/ (IBM Plex, OFL)
-├── db/                      Reference schemas (SQLite, PostgreSQL)
+├── db/                      seed.py (demo accounts) + reference schemas (SQLite, PostgreSQL)
 ├── docs/                    This document
 ├── requirements.txt, .env.example, README.md</code></pre>
 
@@ -405,7 +405,8 @@ ul.tight li { margin: 3px 0; }
 <section id="database">
   <h2>Database</h2>
   <p>SQLite by default (<code>data/app.db</code>); PostgreSQL works by changing <code>DATABASE_URL</code>. New tables are created on startup and
-     new nullable columns are added automatically (<code>add_missing_columns</code>). Reference schemas: <code>db/schema.sql</code>, <code>db/schema.postgres.sql</code>.</p>
+     new nullable columns are added automatically (<code>add_missing_columns</code>). Reference schemas: <code>db/schema.sql</code>, <code>db/schema.postgres.sql</code>.
+     <code>db/seed.py</code> creates the demo accounts (see <a href="#setup">Setup</a>).</p>
   <p class="muted"><code>users</code> 1 ── * <code>lectures</code> 1 ── 1 <code>transcripts</code> · 1 ── 1 <code>notes</code> · 1 ── * <code>quiz_attempts</code> (cascade deletes)</p>
   <div class="table-wrap"><table>
     <tr><th>Table</th><th>Key columns</th></tr>
@@ -483,7 +484,16 @@ ul.tight li { margin: 3px 0; }
 .venv\Scripts\activate            # Windows   (macOS/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
 ollama pull gemma4                # once, ~9.6 GB (needs Ollama installed)
+python db/seed.py                 # optional: demo accounts (safe to re-run)
 uvicorn app.main:app --reload     # add --host 0.0.0.0 to let students on your network open share links</code></pre>
+  <h3>Demo accounts</h3>
+  <p><code>db/seed.py</code> creates the tables if needed and adds these accounts, skipping any that already exist.
+     The password is <code>test1234</code> (or <code>SEED_PASSWORD</code>); <code>--reset-passwords</code> sets them back to it.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Role</th><th>Name</th><th>Email</th></tr>
+    <tr><td>Teacher</td><td>Parul</td><td><code>parul@parul.com</code></td></tr>
+    <tr><td>Student</td><td>Parul</td><td><code>parul@student.com</code></td></tr>
+  </table></div>
   <ul class="tight">
     <li><strong>FFmpeg</strong> isn't required separately: the binary bundled with <code>imageio-ffmpeg</code> is used if none is on the PATH.</li>
     <li><strong>Whisper</strong> downloads its model on first use (~480 MB for <code>small</code>).</li>
@@ -502,14 +512,18 @@ uvicorn app.main:app --reload     # add --host 0.0.0.0 to let students on your n
     <li><strong>Notes (real Ollama, gemma4):</strong> a 5.7-minute lecture in 3 parts produced 5 sections, 7 definitions and 9 questions in 72 s; all answer keys correct. Missing model, cloud model and Ollama-not-running are refused with clear messages.</li>
     <li><strong>Link import (real YouTube):</strong> download, title, Whisper transcript and notes in about 90 s; direct .mp4 links; local-network and invalid URLs refused; students can't import.</li>
     <li><strong>Sharing and quizzes:</strong> share pages work without login; no answers in student HTML; grading of correct, wrong, blank and tampered answers; logged-in attempts; live results; reset and disable.</li>
-    <li><strong>Editing and settings:</strong> profile and password changes; details; thumbnails (frame, upload, auto, invalid image); transcript corrections; notes editor including validation; stages and Continue; watching while processing; re-download.</li>
+    <li><strong>Editing and settings:</strong> profile and password changes; details; thumbnails (frame, upload, auto, invalid image); transcript corrections; notes editor including validation; stages and Continue; watching while processing.</li>
+    <li><strong>Stop (real Whisper):</strong> transcription stopped 0.17 s after the request; no Whisper process left behind, even when the server is force-killed; full runs and errors still work.</li>
+    <li><strong>Re-download (real direct link):</strong> the old video stays during the download and is replaced only when the new copy is complete; stop and failure leave the video unchanged; old copies are cleaned up.</li>
+    <li><strong>Seed:</strong> works on a fresh database (creates tables and accounts) and is safe to re-run.</li>
     <li><strong>Export:</strong> PDF, Markdown and SRT, including Hindi and Chinese text and non-English titles.</li>
   </ul>
   <h3>Problems found and fixed</h3>
   <div class="table-wrap"><table>
     <tr><th>Problem</th><th>Cause</th><th>Fix</th></tr>
     <tr><td>Imported YouTube video wouldn't play in Edge</td><td>YouTube served AV1, which Edge on Windows can't decode without an add-on</td><td>Downloads prefer H.264; the player shows a message if a format can't be played; <em>Re-download</em> fetches a compatible copy.</td></tr>
-    <tr><td>Stop button did nothing</td><td>The running server predated the Stop feature</td><td>Restart after updates; stop requests are now checked in every stage.</td></tr>
+    <tr><td>Stop button did nothing</td><td>First: the running server predated the Stop feature. Then: Whisper can spend minutes on one stretch of audio, and Stop was only checked between segments.</td><td>Whisper now runs in its own process that Stop ends immediately (with a watchdog so it never outlives the server); stop checks in every other stage.</td></tr>
+    <tr><td>Re-download removed the video and stages at once</td><td>The old file was deleted before the new one arrived</td><td>Re-download now runs beside the lecture into a separate file and swaps it in only when complete.</td></tr>
     <tr><td>Dashboard error 500</td><td>A template expected a value the not-yet-restarted server didn't pass</td><td>Form limits are now global template values, so no page can miss them.</td></tr>
     <tr><td>PDF missing Hindi/Chinese text</td><td>Arial lacks those scripts</td><td>Fallback fonts per script plus harfbuzz text shaping.</td></tr>
     <tr><td>Choppy, justified PDF</td><td>One line per Whisper segment; justified alignment</td><td>Transcript grouped into paragraphs; left-aligned text; new layout.</td></tr>
@@ -521,11 +535,14 @@ uvicorn app.main:app --reload     # add --host 0.0.0.0 to let students on your n
 <section id="repo">
   <h2>Repository</h2>
   <p>GitHub: <a href="https://github.com/Parul2406/Lecture2Notes">github.com/Parul2406/Lecture2Notes</a>.</p>
+  <p>All work is on <code>main</code> and pushed to GitHub.</p>
   <div class="table-wrap"><table>
-    <tr><th>Commit</th><th>Branch</th><th>Description</th></tr>
-    <tr><td><code>8d8ceb3</code></td><td><code>main</code></td><td><em>Create app.py</em>: the original Streamlit prototype.</td></tr>
-    <tr><td><code>7d7f61f</code></td><td><code>main</code></td><td><em>Add v1 web app</em>: accounts, upload, FFmpeg + Whisper transcription.</td></tr>
-    <tr><td><code>4416d79</code></td><td><code>feature/notes-quiz-sharing</code></td><td><em>Add local-AI notes, quizzes, sharing, editing and export</em>: everything else in this document.</td></tr>
+    <tr><th>Commit</th><th>Description</th></tr>
+    <tr><td><code>8d8ceb3</code></td><td><em>Create app.py</em>: the original Streamlit prototype.</td></tr>
+    <tr><td><code>7d7f61f</code></td><td><em>Add v1 web app</em>: accounts, upload, FFmpeg + Whisper transcription.</td></tr>
+    <tr><td><code>4416d79</code></td><td><em>Add local-AI notes, quizzes, sharing, editing and export</em>.</td></tr>
+    <tr><td><code>28eef9c</code></td><td><em>Make Stop instant for transcription, safe re-download, update docs</em>.</td></tr>
+    <tr><td><code>3b03910</code></td><td><em>Merge origin/main: keep the updated README</em> (GitHub's <code>main</code> had deleted README.md).</td></tr>
   </table></div>
   <p class="muted">Not committed (git-ignored): <code>.venv/</code>, <code>data/</code> (database, videos, models) and <code>.env</code>.</p>
 </section>
