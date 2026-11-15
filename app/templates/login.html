@@ -1,15 +1,24 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Log in · {{ app_name }}{% endblock %}
-{% block content %}
-<div class="card narrow">
-  <h1>Log in</h1>
-  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
-  <form method="post" action="/login" class="stack">
-    <input type="hidden" name="next" value="{{ next }}">
-    <label>Email <input type="email" name="email" value="{{ email }}" required autofocus autocomplete="email"></label>
-    <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
-    <button class="btn">Log in</button>
-  </form>
-  <p class="muted">No account? <a href="/signup">Sign up</a></p>
-</div>
+{% block main %}
+<main class="auth">
+  {% include "_auth_side.html" %}
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1>Welcome back</h1>
+      <p class="sub">Log in to continue to your lectures.</p>
+      {% if error %}<div class="alert alert-error" style="margin-bottom:16px">{{ icon("alert", "icon-sm") }} {{ error }}</div>{% endif %}
+      <form method="post" action="/login" class="stack">
+        <input type="hidden" name="next" value="{{ next }}">
+        <label class="field"><span>Email</span>
+          <input type="email" name="email" value="{{ email }}" required autofocus autocomplete="email" placeholder="you@school.edu"></label>
+        <label class="field"><span>Password</span>
+          <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••"></label>
+        <button class="btn btn-lg btn-block">Log in {{ icon("arrow-right", "icon-sm") }}</button>
+      </form>
+      <p class="auth-foot">New here? <a href="/signup">Create an account</a></p>
+    </div>
+  </div>
+</main>
 {% endblock %}

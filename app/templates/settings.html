@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Settings · {{ app_name }}{% endblock %}
+{% block content %}
+<div style="max-width:720px;margin:0 auto">
+  <div class="page-head">
+    <div>
+      <span class="eyebrow">{{ icon("user", "icon-sm") }} Account</span>
+      <h1 style="margin-top:8px">Settings</h1>
+      <p>Signed in as {{ user.email }} &middot; {{ user.role.value | capitalize }}</p>
+    </div>
+  </div>
+
+  <section class="card settings-card">
+    <div class="card-head"><h2>{{ icon("user") }} Profile</h2></div>
+    <form method="post" action="/settings/profile" class="card-body stack">
+      {% if errors.profile %}<div class="alert alert-error">{{ icon("alert", "icon-sm") }}<ul>{% for e in errors.profile %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+      <div class="row" style="align-items:center;gap:16px">
+        <span class="avatar avatar-lg">{{ form.name[:1] }}</span>
+        <div><strong>{{ user.name }}</strong><div class="muted small">Your name is shown to students on your lectures and in quiz results.</div></div>
+      </div>
+      <label class="field"><span>Name</span><input name="name" value="{{ form.name }}" required maxlength="120" autocomplete="name"></label>
+      <label class="field"><span>Email</span><input type="email" name="email" value="{{ form.email }}" required autocomplete="email">
+        <small>You log in with this address.</small></label>
+      <div><button class="btn">Save profile</button></div>
+    </form>
+  </section>
+
+  <section class="card settings-card">
+    <div class="card-head"><h2>{{ icon("shield") }} Password</h2></div>
+    <form method="post" action="/settings/password" class="card-body stack">
+      {% if errors.password %}<div class="alert alert-error">{{ icon("alert", "icon-sm") }}<ul>{% for e in errors.password %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+      <label class="field"><span>Current password</span><input type="password" name="current_password" required autocomplete="current-password"></label>
+      <div class="row" style="align-items:flex-start">
+        <label class="field" style="flex:1;min-width:200px"><span>New password</span>
+          <input type="password" name="new_password" required minlength="8" autocomplete="new-password"><small>At least 8 characters.</small></label>
+        <label class="field" style="flex:1;min-width:200px"><span>Confirm new password</span>
+          <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></label>
+      </div>
+      <div><button class="btn">Change password</button></div>
+    </form>
+  </section>
+
+  <section class="card settings-card">
+    <div class="card-head"><h2>{{ icon("sun") }} Appearance</h2></div>
+    <div class="card-body row" style="justify-content:space-between">
+      <div><strong>Theme</strong><div class="muted small">Light is the default. Your choice is remembered in this browser.</div></div>
+      <div class="tabs" role="radiogroup" aria-label="Theme">
+        <button class="tab" type="button" data-theme-choice="light">{{ icon("sun", "icon-sm") }} Light</button>
+        <button class="tab" type="button" data-theme-choice="dark">{{ icon("moon", "icon-sm") }} Dark</button>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const choices = document.querySelectorAll("[data-theme-choice]");
+const mark = () => {
+  const dark = document.documentElement.dataset.theme === "dark";
+  choices.forEach((b) => b.setAttribute("aria-selected", (b.dataset.themeChoice === "dark") === dark));
+};
+choices.forEach((b) => b.addEventListener("click", () => {
+  if (b.dataset.themeChoice === "dark") document.documentElement.dataset.theme = "dark";
+  else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem("ltn-theme", b.dataset.themeChoice); } catch (e) {}
+  mark();
+}));
+document.getElementById("theme-toggle").addEventListener("click", () => setTimeout(mark));
+mark();
+</script>
+{% endblock %}

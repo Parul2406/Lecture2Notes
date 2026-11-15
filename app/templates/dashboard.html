@@ -1,68 +1,223 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Dashboard · {{ app_name }}{% endblock %}
-{% block content %}
-{% if user.is_teacher %}
-<section class="card">
-  <h2>Upload a lecture</h2>
-  <form id="upload-form" method="post" action="/lectures" enctype="multipart/form-data" class="stack">
-    <label>Title <input name="title" required maxlength="200"></label>
-    <label>Description <span class="muted">(optional)</span><textarea name="description" rows="2"></textarea></label>
-    <label>Video or audio file
-      <input type="file" name="file" accept="{{ accept }},video/*,audio/*" required>
-      <small class="muted">Max {{ max_upload_mb }} MB.</small>
-    </label>
-    <progress id="upload-progress" max="100" value="0" hidden></progress>
-    <button class="btn" id="upload-btn">Upload &amp; transcribe</button>
-  </form>
-</section>
-{% endif %}
 
-<section>
-  <h2>{% if user.is_teacher %}Your lectures{% else %}Lectures{% endif %}</h2>
-  {% if lectures %}
-  <ul class="lecture-list">
-    {% for l in lectures %}
-    <li class="card lecture-item">
-      <a href="/lectures/{{ l.id }}" class="lecture-title">{{ l.title }}</a>
-      <div class="meta">
-        <span class="badge">{{ l.media_type.value }}</span>
-        {% if l.duration %}<span>{{ l.duration | timestamp }}</span>{% endif %}
-        {% if not user.is_teacher %}<span>by {{ l.teacher.name }}</span>{% endif %}
-        <span>{{ l.created_at.strftime('%d %b %Y') }}</span>
-        {% if user.is_teacher %}<span class="status status-{{ l.status.value }}">{{ l.status.value | replace('_', ' ') }}</span>{% endif %}
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-    <p class="muted">{% if user.is_teacher %}You haven't uploaded any lectures yet.{% else %}No lectures are available yet.{% endif %}</p>
+{% macro status_pill(l) -%}
+  {%- if l.status.is_processing -%}
+    <span class="pill pill-run"><span class="dot"></span>{{ l.status.value | replace('_', ' ') | capitalize }}</span>
+  {%- elif l.status.value == 'failed' -%}
+    <span class="pill pill-bad"><span class="dot"></span>Failed</span>
+  {%- elif l.status.value == 'cancelled' -%}
+    <span class="pill pill-warn"><span class="dot"></span>Stopped</span>
+  {%- elif l.notes and l.notes.status.is_processing -%}
+    <span class="pill pill-run"><span class="dot"></span>Writing notes</span>
+  {%- elif l.notes and l.notes.content -%}
+    <span class="pill pill-ok">{{ icon("check", "icon-sm") }} Notes ready</span>
+  {%- else -%}
+    <span class="pill pill-ok"><span class="dot"></span>Transcribed</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+{% set ready = lectures | selectattr("status.value", "equalto", "completed") | list | length %}
+{% set with_notes = lectures | selectattr("notes") | selectattr("notes.content") | list | length %}
+{% set ns = namespace(minutes=0) %}{% for l in lectures %}{% set ns.minutes = ns.minutes + (l.duration or 0) / 60 %}{% endfor %}
+
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ icon("teacher" if user.is_teacher else "student", "icon-sm") }} {{ user.role.value | capitalize }}</span>
+    <h1 style="margin-top:8px">Hi {{ user.name.split(' ')[0] }}</h1>
+    <p>{% if user.is_teacher %}Add lectures and your students get transcripts, notes and quizzes automatically.
+       {% else %}Pick a lecture to watch, read the notes and test yourself.{% endif %}</p>
+  </div>
+  {% if user.is_teacher %}
+  <button class="btn" type="button" data-open="new-lecture">{{ icon("plus", "icon-sm") }} New lecture</button>
   {% endif %}
-</section>
+</div>
+
+<div class="stats">
+  <div class="card stat"><span class="stat-label">{{ icon("video", "icon-sm") }} Lectures</span><span class="stat-value">{{ lectures | length }}</span></div>
+  <div class="card stat"><span class="stat-label">{{ icon("clock", "icon-sm") }} Hours of content</span><span class="stat-value">{{ '%.1f' | format(ns.minutes / 60) }}</span></div>
+  <div class="card stat"><span class="stat-label">{{ icon("file-text", "icon-sm") }} Transcribed</span><span class="stat-value">{{ ready }}</span></div>
+  <div class="card stat"><span class="stat-label">{{ icon("quiz", "icon-sm") }} With notes &amp; quiz</span><span class="stat-value">{{ with_notes }}</span></div>
+</div>
+
+<div class="toolbar">
+  <h2>{% if user.is_teacher %}Your lectures{% else %}All lectures{% endif %}</h2>
+  {% if lectures %}
+  <div class="input-icon">{{ icon("search", "icon-sm") }}
+    <input class="input" type="search" id="lecture-search" placeholder="Search lectures…" aria-label="Search lectures"></div>
+  {% endif %}
+</div>
+
+{% if lectures %}
+<div class="lecture-grid" id="lecture-grid">
+  {% for l in lectures %}
+  <a class="card lecture-card" href="/lectures/{{ l.id }}" data-search="{{ (l.title ~ ' ' ~ l.description ~ ' ' ~ l.teacher.name) | lower }}">
+    <div class="lecture-thumb">
+      {% if l.thumbnail_path %}<img src="/lectures/{{ l.id }}/thumbnail?v={{ l.updated_at.timestamp() | int }}" alt="" loading="lazy">{% else %}{{ icon("video" if l.media_type.value == 'video' else "audio") }}{% endif %}
+      {{ status_pill(l) }}
+      {% if l.duration %}<span class="duration">{{ l.duration | timestamp }}</span>{% endif %}
+    </div>
+    <div class="lecture-card-body">
+      <h3>{{ l.title }}</h3>
+      <div class="meta">
+        {% if not user.is_teacher %}<span>{{ icon("user", "icon-sm") }} {{ l.teacher.name }}</span>{% endif %}
+        <span>{{ icon("calendar", "icon-sm") }} {{ l.created_at.strftime('%d %b %Y') }}</span>
+        {% if l.source_url %}<span>{{ icon("link", "icon-sm") }} Imported</span>{% endif %}
+        {% if l.notes and l.notes.content %}<span>{{ icon("quiz", "icon-sm") }} {{ l.notes.content.mcqs | length }} questions</span>{% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+<div class="card empty" id="no-results" hidden><h3>No matching lectures</h3><p>Try a different search.</p></div>
+{% else %}
+<div class="card empty">
+  <div class="tile-icon">{{ icon("video") }}</div>
+  <h3>{% if user.is_teacher %}No lectures yet{% else %}Nothing here yet{% endif %}</h3>
+  <p>{% if user.is_teacher %}Upload a recording or paste a YouTube link. The transcript, notes and quiz are created automatically.
+    {% else %}Your teachers haven't published any lectures yet.{% endif %}</p>
+  {% if user.is_teacher %}<button class="btn" type="button" data-open="new-lecture">{{ icon("plus", "icon-sm") }} Add your first lecture</button>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block modals %}
+{% if user.is_teacher %}
+<dialog class="modal" id="new-lecture" aria-labelledby="new-lecture-title">
+  <div class="modal-head">
+    <div>
+      <h2 id="new-lecture-title">New lecture</h2>
+      <p>The transcript, notes and quiz are created automatically.</p>
+    </div>
+    <button class="icon-btn" type="button" data-close aria-label="Close">{{ icon("x") }}</button>
+  </div>
+  <div class="modal-body stack">
+    <div class="tabs full" role="tablist">
+      <button class="tab" type="button" role="tab" aria-selected="true" data-source="upload">{{ icon("upload", "icon-sm") }} Upload file</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-source="link">{{ icon("link", "icon-sm") }} From a link</button>
+    </div>
+
+    <form id="upload-form" method="post" action="/lectures" enctype="multipart/form-data" class="stack">
+      <label class="dropzone" id="dropzone">
+        <input type="file" name="file" id="file-input" accept="{{ accept }},video/*,audio/*" required>
+        <span class="dropzone-icon">{{ icon("upload") }}</span>
+        <strong id="drop-title">Drop a video or audio file</strong>
+        <span class="muted small" id="drop-sub">or click to browse &middot; up to {{ max_upload_mb }} MB</span>
+      </label>
+      <label class="field"><span>Title</span><input name="title" id="title-input" required maxlength="200" placeholder="e.g. Week 3: Sorting algorithms"></label>
+      <label class="field"><span>Description <span class="muted">(optional)</span></span>
+        <textarea name="description" rows="2" placeholder="What is this lecture about?"></textarea></label>
+      <div class="progress" id="upload-progress" hidden><div></div></div>
+    </form>
+
+    <form id="link-form" method="post" action="/lectures/import" class="stack" hidden>
+      <label class="field"><span>Video link</span>
+        <div class="input-icon">{{ icon("link", "icon-sm") }}
+          <input type="url" name="url" id="url-input" required placeholder="https://www.youtube.com/watch?v=…" inputmode="url"></div>
+        <small>YouTube, Vimeo, public Google Drive files, or a direct link to an .mp4 / .mp3 file. Up to {{ max_download_hours | int }} hours and {{ max_upload_mb }} MB.</small>
+      </label>
+      <label class="field"><span>Title <span class="muted">(optional)</span></span>
+        <input name="title" maxlength="200" placeholder="Leave empty to use the video's title"></label>
+      <label class="field"><span>Description <span class="muted">(optional)</span></span>
+        <textarea name="description" rows="2" placeholder="What is this lecture about?"></textarea></label>
+      <p class="muted small" style="margin:0">Only import videos you have the right to use in your class.</p>
+    </form>
+  </div>
+  <div class="modal-foot">
+    <button class="btn btn-secondary" type="button" data-close>Cancel</button>
+    <button class="btn" type="submit" form="upload-form" id="submit-btn">{{ icon("upload", "icon-sm") }} Upload &amp; process</button>
+  </div>
+</dialog>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+<script>
+const search = document.getElementById("lecture-search");
+if (search) {
+  const cards = [...document.querySelectorAll("#lecture-grid .lecture-card")];
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    cards.forEach((c) => { const hit = !q || c.dataset.search.includes(q); c.hidden = !hit; shown += hit; });
+    document.getElementById("no-results").hidden = shown > 0;
+  });
+}
+</script>
 {% if user.is_teacher %}
 <script>
-// Upload with a progress bar (large lecture videos can take a while).
-const form = document.getElementById("upload-form");
-form.addEventListener("submit", (e) => {
+const dialog = document.getElementById("new-lecture");
+const submitBtn = document.getElementById("submit-btn");
+const uploadForm = document.getElementById("upload-form");
+const linkForm = document.getElementById("link-form");
+const fileInput = document.getElementById("file-input");
+const dropzone = document.getElementById("dropzone");
+const titleInput = document.getElementById("title-input");
+const LABELS = {
+  upload: document.querySelector('[data-source="upload"] svg').outerHTML + " Upload &amp; process",
+  link: document.querySelector('[data-source="link"] svg').outerHTML + " Import &amp; process",
+};
+
+// Upload file / From a link
+const setSource = (src) => {
+  document.querySelectorAll("[data-source]").forEach((b) => b.setAttribute("aria-selected", b.dataset.source === src));
+  uploadForm.hidden = src !== "upload";
+  linkForm.hidden = src !== "link";
+  submitBtn.setAttribute("form", src === "upload" ? "upload-form" : "link-form");
+  submitBtn.innerHTML = LABELS[src];
+  (src === "upload" ? titleInput : document.getElementById("url-input")).focus();
+};
+document.querySelectorAll("[data-source]").forEach((b) => b.addEventListener("click", () => setSource(b.dataset.source)));
+
+// Drag & drop; suggest a title from the file name.
+const showFile = () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+  const title = document.getElementById("drop-title");
+  title.textContent = f.name;
+  title.className = "file-name";
+  document.getElementById("drop-sub").textContent = (f.size / 1048576).toFixed(1) + " MB · click to change";
+  if (!titleInput.value) titleInput.value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+};
+fileInput.addEventListener("change", showFile);
+["dragenter", "dragover"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("dragover"); }));
+["dragleave", "drop"].forEach((ev) => dropzone.addEventListener(ev, () => dropzone.classList.remove("dragover")));
+dropzone.addEventListener("drop", (e) => {
   e.preventDefault();
-  const bar = document.getElementById("upload-progress");
-  const btn = document.getElementById("upload-btn");
-  const xhr = new XMLHttpRequest();
-  xhr.open("POST", form.action);
-  xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) bar.value = (ev.loaded / ev.total) * 100; };
-  xhr.onload = () => { window.location.href = xhr.responseURL || "/dashboard"; };
-  xhr.onerror = () => {
-    btn.disabled = false;
-    btn.textContent = "Upload & transcribe";
-    alert("Upload failed. Please try again.");
-  };
-  bar.hidden = false;
-  btn.disabled = true;
-  btn.textContent = "Uploading…";
-  xhr.send(new FormData(form));
+  if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; showFile(); }
 });
+// Dropping a file anywhere on the dashboard opens the dialog with it.
+document.addEventListener("dragover", (e) => { if (!dialog.open && e.dataTransfer.types.includes("Files")) e.preventDefault(); });
+document.addEventListener("drop", (e) => {
+  if (dialog.open || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  dialog.showModal(); setSource("upload");
+  fileInput.files = e.dataTransfer.files; showFile();
+});
+
+// Upload with progress.
+uploadForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const wrap = document.getElementById("upload-progress");
+  const bar = wrap.firstElementChild;
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", uploadForm.action);
+  xhr.upload.onprogress = (ev) => {
+    if (!ev.lengthComputable) return;
+    const pct = Math.round((ev.loaded / ev.total) * 100);
+    bar.style.width = pct + "%";
+    submitBtn.textContent = pct < 100 ? `Uploading ${pct}%` : "Processing…";
+  };
+  xhr.onload = () => { window.location.href = xhr.responseURL || "/dashboard"; };
+  xhr.onerror = () => { submitBtn.disabled = false; setSource("upload"); wrap.hidden = true; alert("Upload failed. Please try again."); };
+  wrap.hidden = false;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Uploading…";
+  xhr.send(new FormData(uploadForm));
+});
+linkForm.addEventListener("submit", () => { submitBtn.disabled = true; submitBtn.textContent = "Starting import…"; });
 </script>
 {% endif %}
 {% endblock %}

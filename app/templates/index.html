@@ -1,12 +1,56 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
 <section class="hero">
-  <h1>Turn lectures into searchable, timestamped notes.</h1>
-  <p>Teachers upload a video or audio recording. We extract the audio and transcribe it locally with Whisper,
-     so students can read along and jump to any moment of the lecture.</p>
-  <div class="actions">
-    <a class="btn" href="/signup">Get started</a>
-    <a class="btn btn-ghost" href="/login">I already have an account</a>
+  <span class="badge-line"><span class="dot"></span> Runs on your computer &middot; recordings stay private</span>
+  <h1>Turn every lecture into <span class="accent">notes, quizzes and a searchable transcript</span>.</h1>
+  <p class="lead">Upload a recording or paste a YouTube link. Whisper transcribes it and a local language model writes
+    study notes, key definitions and practice questions, each linked to the exact moment in the lecture.</p>
+  <div class="row">
+    <a class="btn btn-lg" href="/signup">Get started {{ icon("arrow-right", "icon-sm") }}</a>
+    <a class="btn btn-secondary btn-lg" href="/login">Log in</a>
+  </div>
+</section>
+
+<section class="bento">
+  <div class="card tile span-4">
+    <div class="tile-icon">{{ icon("file-text") }}</div>
+    <h3>Study notes, linked to the lecture</h3>
+    <p>A summary, topic-by-topic key points and definitions. Click any note to jump straight to that moment.</p>
+    <div class="tile-preview">
+      <div class="preview-line"><span class="ts-mini">02:13</span> Programs translate a new language into one the computer knows</div>
+      <div class="preview-line active"><span class="ts-mini">03:13</span> Programming is a cycle: define, write, execute, refine</div>
+      <div class="preview-line"><span class="ts-mini">05:02</span> Computer science is the theoretical side of programming</div>
+    </div>
+  </div>
+  <div class="card tile span-2">
+    <div class="tile-icon">{{ icon("shield") }}</div>
+    <h3>Private by design</h3>
+    <p>Speech recognition and notes run on your own machine. Lectures never leave the computer.</p>
+  </div>
+  <div class="card tile span-2">
+    <div class="tile-icon">{{ icon("quiz") }}</div>
+    <h3>Practice quizzes</h3>
+    <p>Multiple-choice questions with instant feedback and an explanation for every answer.</p>
+  </div>
+  <div class="card tile span-2">
+    <div class="tile-icon">{{ icon("link") }}</div>
+    <h3>Upload or paste a link</h3>
+    <p>Add a video or audio file, or import straight from YouTube and other sites.</p>
+  </div>
+  <div class="card tile span-2">
+    <div class="tile-icon">{{ icon("download") }}</div>
+    <h3>Export anywhere</h3>
+    <p>Download notes and transcript as PDF or Markdown, or subtitles as SRT.</p>
+  </div>
+  <div class="card tile span-6">
+    <h3>How it works</h3>
+    <div class="steps-flow">
+      <span class="pill">{{ icon("upload", "icon-sm") }} Upload or paste a link</span>{{ icon("arrow-right", "icon-sm") }}
+      <span class="pill">{{ icon("mic", "icon-sm") }} Whisper transcribes</span>{{ icon("arrow-right", "icon-sm") }}
+      <span class="pill">{{ icon("cpu", "icon-sm") }} Local model writes notes &amp; quiz</span>{{ icon("arrow-right", "icon-sm") }}
+      <span class="pill pill-ok">{{ icon("check", "icon-sm") }} Students study</span>
+    </div>
   </div>
 </section>
 {% endblock %}

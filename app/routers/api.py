@@ -26,3 +26,11 @@ def lecture_transcript(lecture_id: int, user: User = Depends(require_user), db: 
     if lecture.transcript is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Transcript not ready")
     return {"title": lecture.title, **lecture.transcript.as_dict()}
+
+
+@router.get("/lectures/{lecture_id}/notes")
+def lecture_notes(lecture_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    lecture = get_viewable_lecture(lecture_id, user, db)
+    if lecture.notes is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No notes for this lecture")
+    return {"title": lecture.title, **lecture.notes.as_dict()}

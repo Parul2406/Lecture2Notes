@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Quiz: {{ lecture.title }} · {{ app_name }}{% endblock %}
+{% block content %}
+<div style="max-width:760px;margin:0 auto">
+  <a href="{{ back_url }}" class="back">{{ icon("arrow-left", "icon-sm") }} Back to the lecture</a>
+
+  {% if attempt %}
+  {# ---------------- Result ---------------- #}
+  <div class="card card-body result-hero">
+    <span class="eyebrow">{{ icon("quiz", "icon-sm") }} Quiz result</span>
+    <h1>{{ lecture.title }}</h1>
+    <div class="score-ring {% if attempt.percent >= 70 %}good{% elif attempt.percent >= 40 %}ok{% else %}low{% endif %}" style="--p: {{ attempt.percent }}">
+      <div><strong>{{ attempt.score }}/{{ attempt.total }}</strong><span>{{ attempt.percent }}%</span></div>
+    </div>
+    <p class="muted" style="margin:0">
+      {% if attempt.percent == 100 %}Perfect score, {{ attempt.name }}!
+      {% elif attempt.percent >= 70 %}Well done, {{ attempt.name }}.
+      {% elif attempt.percent >= 40 %}Good effort, {{ attempt.name }}. Review the questions below.
+      {% else %}Keep going, {{ attempt.name }}. Rewatch the parts linked below and try again.{% endif %}
+      Your teacher can see this result.</p>
+    <div class="row" style="justify-content:center;margin-top:18px">
+      <a class="btn btn-secondary" href="{{ retake_url }}">{{ icon("refresh", "icon-sm") }} Take it again</a>
+      <a class="btn" href="{{ back_url }}">{{ icon("video", "icon-sm") }} Back to the lecture</a>
+    </div>
+  </div>
+
+  {% if review %}
+  <h2 style="margin:28px 0 14px">Your answers</h2>
+  <ol class="mcqs">
+    {% for q in review %}
+    <li class="mcq answered">
+      <p class="mcq-q">{{ q.question }}</p>
+      <div class="mcq-options">
+        {% for opt in q.options %}
+        <div class="mcq-opt {% if loop.index0 == q.answer_index %}correct{% elif loop.index0 == q.chosen %}wrong{% endif %}">
+          <b>{{ "ABCDEFGHIJ"[loop.index0] }}</b><span>{{ opt }}</span>
+          {% if loop.index0 == q.chosen %}<span class="your-answer">Your answer</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if q.chosen is none %}<p class="muted small" style="margin:8px 0 0">Not answered.</p>{% endif %}
+      <div class="mcq-explain">{{ icon("bulb", "icon-sm") }}
+        <div>{{ q.explanation }}
+          <a class="ts" href="{{ back_url }}#t={{ q.start }}">{{ q.start | timestamp }}</a></div></div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="muted" style="margin-top:20px">The quiz has been updated since this attempt, so the question-by-question review isn't available.</p>
+  {% endif %}
+
+  {% else %}
+  {# ---------------- Take the quiz ---------------- #}
+  <div class="page-head" style="margin-top:4px">
+    <div>
+      <span class="eyebrow">{{ icon("quiz", "icon-sm") }} Quiz &middot; {{ questions | length }} questions</span>
+      <h1 style="margin-top:8px">{{ lecture.title }}</h1>
+      <p>Answer every question, then submit to see your marks. Your teacher sees the results.</p>
+    </div>
+  </div>
+
+  {% if not questions %}
+  <div class="card empty">
+    <div class="tile-icon">{{ icon("quiz") }}</div>
+    <h3>No quiz yet</h3>
+    <p>This lecture doesn't have a quiz yet. Check back later.</p>
+  </div>
+  {% else %}
+  <form method="post" action="{{ action }}" id="quiz-form" class="stack">
+    {% if not user %}
+    <div class="card card-body">
+      <label class="field"><span>Your name</span>
+        <input name="name" required maxlength="120" autocomplete="name" placeholder="So your teacher knows whose answers these are"></label>
+      <p class="muted small" style="margin:8px 0 0">Have an account? <a href="/login?next={{ request.url.path }}">Log in</a> to save it to your profile.</p>
+    </div>
+    {% else %}
+    <p class="muted small" style="margin:0">Submitting as <strong>{{ user.name }}</strong>.</p>
+    {% endif %}
+
+    <ol class="mcqs">
+      {% for q in questions %}
+      {% set qi = loop.index0 %}
+      <li class="mcq">
+        <p class="mcq-q">{{ q.question }}</p>
+        <div class="mcq-options">
+          {% for opt in q.options %}
+          <label class="mcq-opt choice">
+            <input type="radio" name="q{{ qi }}" value="{{ loop.index0 }}">
+            <b>{{ "ABCDEFGHIJ"[loop.index0] }}</b><span>{{ opt }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+
+    <div class="card card-body submit-bar">
+      <span class="muted" id="answered-count">0 of {{ questions | length }} answered</span>
+      <button class="btn btn-lg" id="submit-quiz">{{ icon("check", "icon-sm") }} Submit answers</button>
+    </div>
+  </form>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById("quiz-form");
+if (form) {
+  const total = {{ (questions or []) | length }};
+  const count = () => new Set([...form.querySelectorAll("input[type=radio]:checked")].map((r) => r.name)).size;
+  form.addEventListener("change", () => {
+    document.getElementById("answered-count").textContent = `${count()} of ${total} answered`;
+  });
+  form.addEventListener("submit", (e) => {
+    const missing = total - count();
+    if (missing > 0 && !confirm(`${missing} question${missing === 1 ? " is" : "s are"} not answered. Submit anyway?`)) {
+      e.preventDefault(); return;
+    }
+    document.getElementById("submit-quiz").disabled = true;
+  });
+}
+</script>
+{% endblock %}

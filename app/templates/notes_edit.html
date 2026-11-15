@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Edit notes · {{ lecture.title }} · {{ app_name }}{% endblock %}
+
+{% macro ts_input(seconds) -%}
+<input class="input ts-input" data-field="start" value="{{ seconds | timestamp if seconds is not none else '00:00' }}" title="Time in the lecture (mm:ss)" aria-label="Time in the lecture">
+{%- endmacro %}
+
+{% macro keypoint(k) -%}
+<li class="ed-row" data-item="keypoint">
+  {{ ts_input(k.start) }}
+  <textarea class="input" data-field="text" rows="1" placeholder="Key point">{{ k.text }}</textarea>
+  <button class="icon-btn" type="button" data-remove title="Remove">{{ icon("x", "icon-sm") }}</button>
+</li>
+{%- endmacro %}
+
+{% macro section(s) -%}
+<div class="card ed-card" data-item="section">
+  <div class="ed-card-head">
+    {{ ts_input(s.start) }}
+    <input class="input ed-title" data-field="title" value="{{ s.title }}" placeholder="Section title">
+    <button class="icon-btn" type="button" data-move="-1" title="Move up">{{ icon("chevron-down", "icon-sm up") }}</button>
+    <button class="icon-btn" type="button" data-move="1" title="Move down">{{ icon("chevron-down", "icon-sm") }}</button>
+    <button class="icon-btn" type="button" data-remove title="Remove section">{{ icon("trash", "icon-sm") }}</button>
+  </div>
+  <textarea class="input" data-field="summary" rows="2" placeholder="Short summary of this part">{{ s.summary }}</textarea>
+  <ul class="ed-list" data-list="key_points">{% for k in s.key_points %}{{ keypoint(k) }}{% endfor %}</ul>
+  <button class="btn btn-ghost btn-sm" type="button" data-add="keypoint">{{ icon("plus", "icon-sm") }} Key point</button>
+</div>
+{%- endmacro %}
+
+{% macro definition(d) -%}
+<li class="ed-row ed-def" data-item="definition">
+  {{ ts_input(d.start) }}
+  <input class="input" data-field="term" value="{{ d.term }}" placeholder="Term">
+  <textarea class="input" data-field="definition" rows="1" placeholder="Definition">{{ d.definition }}</textarea>
+  <button class="icon-btn" type="button" data-remove title="Remove">{{ icon("x", "icon-sm") }}</button>
+</li>
+{%- endmacro %}
+
+{% macro question(q, n) -%}
+<div class="card ed-card" data-item="mcq">
+  <div class="ed-card-head">
+    {{ ts_input(q.start) }}
+    <textarea class="input ed-title" data-field="question" rows="1" placeholder="Question">{{ q.question }}</textarea>
+    <button class="icon-btn" type="button" data-remove title="Remove question">{{ icon("trash", "icon-sm") }}</button>
+  </div>
+  <p class="muted small" style="margin:0">Select the correct answer:</p>
+  <ul class="ed-list" data-list="options">
+    {% for opt in (q.options if q.options else ['', '', '', '']) %}
+    <li class="ed-row ed-opt" data-item="option">
+      <label class="ed-correct" title="Correct answer"><input type="radio" name="correct-{{ n }}" {% if loop.index0 == q.answer_index %}checked{% endif %}><b></b></label>
+      <input class="input" data-field="option" value="{{ opt }}" placeholder="Answer option">
+      <button class="icon-btn" type="button" data-remove title="Remove option">{{ icon("x", "icon-sm") }}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  <button class="btn btn-ghost btn-sm" type="button" data-add="option">{{ icon("plus", "icon-sm") }} Option</button>
+  <textarea class="input" data-field="explanation" rows="2" placeholder="Why is this the right answer? (shown after submitting)">{{ q.explanation }}</textarea>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="editor">
+  <a href="/lectures/{{ lecture.id }}" class="back">{{ icon("arrow-left", "icon-sm") }} Back to the lecture</a>
+  <div class="page-head">
+    <div>
+      <span class="eyebrow">{{ icon("pen", "icon-sm") }} Edit notes &amp; quiz</span>
+      <h1 style="margin-top:8px">{{ lecture.title }}</h1>
+      <p>Times (mm:ss) link each item to the video. Changes are visible to students once you save.</p>
+    </div>
+  </div>
+  {% if attempts %}
+  <div class="alert alert-warn" style="margin-bottom:18px">{{ icon("info", "icon-sm") }}
+    <div>{{ attempts }} student submission{{ 's' if attempts != 1 }} exist. If you change the quiz, those results are kept but marked as taken on the old version.</div></div>
+  {% endif %}
+
+  <section class="ed-block">
+    <h2>Summary</h2>
+    <textarea class="input" id="ed-summary" rows="4" placeholder="Overview of the whole lecture">{{ content.summary }}</textarea>
+  </section>
+
+  <section class="ed-block">
+    <div class="ed-block-head"><h2>Sections</h2>
+      <button class="btn btn-secondary btn-sm" type="button" data-add="section">{{ icon("plus", "icon-sm") }} Section</button></div>
+    <div id="ed-sections" class="stack">{% for s in content.sections %}{{ section(s) }}{% endfor %}</div>
+  </section>
+
+  <section class="ed-block">
+    <div class="ed-block-head"><h2>Key definitions</h2>
+      <button class="btn btn-secondary btn-sm" type="button" data-add="definition">{{ icon("plus", "icon-sm") }} Definition</button></div>
+    <ul class="ed-list card ed-card" id="ed-definitions">{% for d in content.definitions %}{{ definition(d) }}{% endfor %}</ul>
+  </section>
+
+  <section class="ed-block">
+    <div class="ed-block-head"><h2>Quiz questions</h2>
+      <button class="btn btn-secondary btn-sm" type="button" data-add="mcq">{{ icon("plus", "icon-sm") }} Question</button></div>
+    <div id="ed-mcqs" class="stack">{% for q in content.mcqs %}{{ question(q, loop.index0) }}{% endfor %}</div>
+  </section>
+
+  <div class="card card-body submit-bar">
+    <span class="muted small" id="ed-status">No unsaved changes</span>
+    <div class="row">
+      <a class="btn btn-secondary" href="/lectures/{{ lecture.id }}">Cancel</a>
+      <button class="btn" type="button" id="ed-save">{{ icon("check", "icon-sm") }} Save changes</button>
+    </div>
+  </div>
+</div>
+
+{# Blank items for the "add" buttons #}
+<template id="tpl-section">{{ section({'title': '', 'start': 0, 'summary': '', 'key_points': []}) }}</template>
+<template id="tpl-keypoint">{{ keypoint({'text': '', 'start': 0}) }}</template>
+<template id="tpl-definition">{{ definition({'term': '', 'definition': '', 'start': 0}) }}</template>
+<template id="tpl-mcq">{{ question({'question': '', 'options': [], 'answer_index': 0, 'explanation': '', 'start': 0}, 'NEW') }}</template>
+<template id="tpl-option"><li class="ed-row ed-opt" data-item="option">
+  <label class="ed-correct" title="Correct answer"><input type="radio" name="correct-NEW"><b></b></label>
+  <input class="input" data-field="option" placeholder="Answer option">
+  <button class="icon-btn" type="button" data-remove title="Remove option">{{ icon("x", "icon-sm") }}</button></li></template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LECTURE_ID = {{ lecture.id }};
+let dirty = false, uid = 1000;
+const status = document.getElementById("ed-status");
+const markDirty = () => { dirty = true; status.textContent = "Unsaved changes"; };
+document.addEventListener("input", (e) => { if (e.target.closest(".editor")) markDirty(); });
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// Auto-grow textareas
+const grow = (t) => { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; };
+document.querySelectorAll(".editor textarea").forEach(grow);
+document.addEventListener("input", (e) => { if (e.target.tagName === "TEXTAREA") grow(e.target); });
+
+const fromTpl = (id) => {
+  const node = document.getElementById(id).content.firstElementChild.cloneNode(true);
+  const n = uid++;
+  node.querySelectorAll('input[type=radio]').forEach((r) => (r.name = "correct-" + n));
+  return node;
+};
+document.addEventListener("click", (e) => {
+  const add = e.target.closest("[data-add]");
+  if (add) {
+    const kind = add.dataset.add;
+    let node;
+    if (kind === "section") document.getElementById("ed-sections").append(node = fromTpl("tpl-section"));
+    if (kind === "definition") document.getElementById("ed-definitions").append(node = fromTpl("tpl-definition"));
+    if (kind === "mcq") {
+      node = fromTpl("tpl-mcq");
+      document.getElementById("ed-mcqs").append(node);
+      node.querySelector("input[type=radio]").checked = true;
+    }
+    if (kind === "keypoint") add.previousElementSibling.append(node = fromTpl("tpl-keypoint"));
+    if (kind === "option") {
+      const list = add.previousElementSibling;
+      node = fromTpl("tpl-option");
+      node.querySelector("input[type=radio]").name = list.querySelector("input[type=radio]")?.name || "correct-" + uid++;
+      list.append(node);
+    }
+    node?.querySelector("input:not(.ts-input):not([type=radio]), textarea")?.focus();
+    markDirty();
+    return;
+  }
+  const rm = e.target.closest("[data-remove]");
+  if (rm) { rm.closest("[data-item]").remove(); markDirty(); return; }
+  const mv = e.target.closest("[data-move]");
+  if (mv) {
+    const card = mv.closest("[data-item]");
+    const sib = mv.dataset.move === "-1" ? card.previousElementSibling : card.nextElementSibling;
+    if (sib) { mv.dataset.move === "-1" ? sib.before(card) : sib.after(card); markDirty(); }
+  }
+});
+
+// mm:ss / h:mm:ss -> seconds
+const secs = (v) => {
+  const parts = String(v).trim().split(":").map(Number);
+  if (parts.some(isNaN)) return 0;
+  return parts.reduce((acc, p) => acc * 60 + p, 0);
+};
+const val = (el, f) => el.querySelector(`:scope > [data-field="${f}"], :scope > * > [data-field="${f}"]`)?.value.trim() ?? "";
+
+const collect = () => ({
+  summary: document.getElementById("ed-summary").value.trim(),
+  sections: [...document.querySelectorAll('#ed-sections > [data-item="section"]')].map((s) => ({
+    title: val(s, "title"), start: secs(val(s, "start")), summary: val(s, "summary"),
+    key_points: [...s.querySelectorAll('[data-item="keypoint"]')].map((k) => ({ text: val(k, "text"), start: secs(val(k, "start")) }))
+      .filter((k) => k.text),
+  })),
+  definitions: [...document.querySelectorAll('#ed-definitions > [data-item="definition"]')].map((d) => ({
+    term: val(d, "term"), definition: val(d, "definition"), start: secs(val(d, "start")),
+  })).filter((d) => d.term || d.definition),
+  mcqs: [...document.querySelectorAll('#ed-mcqs > [data-item="mcq"]')].map((q) => {
+    const opts = [...q.querySelectorAll('[data-item="option"]')];
+    return {
+      question: val(q, "question"), start: secs(val(q, "start")), explanation: val(q, "explanation"),
+      options: opts.map((o) => val(o, "option")),
+      answer_index: Math.max(0, opts.findIndex((o) => o.querySelector("input[type=radio]").checked)),
+    };
+  }),
+});
+
+const describe = (loc, msg) => {
+  const [, area, i, field, j] = loc;
+  const names = { sections: "Section", definitions: "Definition", mcqs: "Question" };
+  let where = names[area] ? `${names[area]} ${i + 1}` : area;
+  if (field === "key_points") where += `, key point ${j + 1}`;
+  else if (field && typeof field === "string") where += ` (${field.replace("_", " ")})`;
+  return `${where}: ${msg.replace(/^Value error, /, "")}`;
+};
+
+document.getElementById("ed-save").addEventListener("click", async () => {
+  const btn = document.getElementById("ed-save");
+  btn.disabled = true; status.textContent = "Saving…";
+  try {
+    const r = await fetch(`/api/lectures/${LECTURE_ID}/notes`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(collect()) });
+    if (r.ok) { dirty = false; window.location.href = `/lectures/${LECTURE_ID}`; return; }
+    const d = await r.json().catch(() => ({}));
+    const msgs = Array.isArray(d.detail) ? d.detail.map((x) => describe(x.loc, x.msg)) : [d.detail || "Couldn't save."];
+    status.textContent = "Not saved";
+    window.showToast("<strong>Please fix:</strong><br>" + msgs.slice(0, 5).map((m) => m.replace(/</g, "&lt;")).join("<br>"), "error");
+  } catch (e) {
+    status.textContent = "Not saved";
+    window.showToast("Couldn't reach the server. Your changes are still here; try again.", "error");
+  }
+  btn.disabled = false;
+});
+</script>
+{% endblock %}

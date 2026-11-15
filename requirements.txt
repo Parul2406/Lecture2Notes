@@ -10,3 +10,12 @@ faster-whisper>=1.1
 numpy>=1.26
 # Bundled ffmpeg binary, used only when ffmpeg is not on PATH
 imageio-ffmpeg>=0.5
+# Import lectures from YouTube and other links (uses Node/Deno, if installed, for YouTube)
+yt-dlp[default]>=2026.10
+# Talks to the local Ollama server for notes generation
+httpx>=0.27
+# PDF export
+fpdf2>=2.8
+# Thumbnail uploads (also used by fpdf2)
+pillow>=10
+uharfbuzz>=0.40  # text shaping for Indic/Arabic scripts in PDFs

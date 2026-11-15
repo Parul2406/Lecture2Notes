@@ -1,76 +1,461 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}{{ lecture.title }} · {{ app_name }}{% endblock %}
 {% block content %}
-<a href="/dashboard" class="muted">&larr; Back</a>
-<div class="lecture-header">
-  <div>
+{% set notes = lecture.notes %}
+{% set c = notes.content if notes and notes.content else None %}
+{% set is_owner = (user and user.is_teacher and user.id == lecture.teacher_id and not shared) %}
+{% set has_transcript = lecture.transcript and lecture.status.value == 'completed' %}
+{% set has_quiz = c and c.mcqs %}
+
+{% if user %}<a href="/dashboard" class="back">{{ icon("arrow-left", "icon-sm") }} {% if shared %}Dashboard{% else %}All lectures{% endif %}</a>{% endif %}
+
+<div class="lecture-head">
+  <div style="min-width:0">
+    <div class="chips" style="margin-bottom:12px">
+      {% if shared %}<span class="pill pill-accent">{{ icon("link", "icon-sm") }} Shared lecture</span>{% endif %}
+      <span class="pill">{{ icon("video" if lecture.media_type.value == 'video' else "audio", "icon-sm") }} {{ lecture.media_type.value | capitalize }}</span>
+      {% if lecture.duration %}<span class="pill">{{ icon("clock", "icon-sm") }} {{ lecture.duration | timestamp }}</span>{% endif %}
+      {% if lecture.transcript and lecture.transcript.language %}<span class="pill">{{ lecture.transcript.language | upper }}</span>{% endif %}
+      {% if c %}<span class="pill pill-ok">{{ icon("check", "icon-sm") }} Notes &amp; quiz</span>{% endif %}
+    </div>
     <h1>{{ lecture.title }}</h1>
-    <p class="muted">by {{ lecture.teacher.name }} · {{ lecture.created_at.strftime('%d %b %Y') }}
-      {% if lecture.duration %}· {{ lecture.duration | timestamp }}{% endif %}</p>
-    {% if lecture.description %}<p>{{ lecture.description }}</p>{% endif %}
+    <div class="chips">
+      <span class="chip">{{ icon("user", "icon-sm") }} {{ lecture.teacher.name }}</span>
+      <span class="chip">{{ icon("calendar", "icon-sm") }} {{ lecture.created_at.strftime('%d %b %Y') }}</span>
+      {% if lecture.source_url %}<a class="source-link" href="{{ lecture.source_url }}" target="_blank" rel="noopener noreferrer">{{ icon("external", "icon-sm") }} Original video</a>{% endif %}
+    </div>
+    {% if lecture.description %}<p class="desc">{{ lecture.description }}</p>{% endif %}
   </div>
-  {% if user.is_teacher %}
-  <div class="actions">
-    {% if lecture.status.value == 'failed' %}
-      <form method="post" action="/lectures/{{ lecture.id }}/retry" class="inline"><button class="btn btn-small">Retry</button></form>
+
+  <div class="row">
+    {% if has_quiz and not is_owner and ready %}
+    <a class="btn btn-sm" href="{{ quiz_url }}">{{ icon("quiz", "icon-sm") }} Take the quiz</a>
     {% endif %}
-    {% if not lecture.status.is_processing %}
-      <form method="post" action="/lectures/{{ lecture.id }}/delete" class="inline"
-            onsubmit="return confirm('Delete this lecture and its transcript?');">
-        <button class="btn btn-small btn-danger">Delete</button>
-      </form>
+    {% if is_owner %}
+    <button class="btn btn-secondary btn-sm" type="button" data-open="edit-details">{{ icon("pen", "icon-sm") }} Edit</button>
+    <button class="btn btn-secondary btn-sm" type="button" data-open="share-dialog">{{ icon("link", "icon-sm") }} Share</button>
+    {% endif %}
+    {% if has_transcript and not shared %}
+    <details class="dropdown">
+      <summary class="btn btn-secondary btn-sm">{{ icon("download", "icon-sm") }} Export {{ icon("chevron-down", "icon-sm") }}</summary>
+      <div class="menu">
+        <a class="menu-item" href="/lectures/{{ lecture.id }}/export.pdf">{{ icon("file-text", "icon-sm") }}
+          <span>PDF<small>Notes, quiz and transcript</small></span></a>
+        <a class="menu-item" href="/lectures/{{ lecture.id }}/export.md">{{ icon("hash", "icon-sm") }}
+          <span>Markdown<small>For Notion, Obsidian or docs</small></span></a>
+        <a class="menu-item" href="/lectures/{{ lecture.id }}/export.srt">{{ icon("captions", "icon-sm") }}
+          <span>Subtitles (SRT)<small>For video players</small></span></a>
+      </div>
+    </details>
+    {% endif %}
+    {% if is_owner %}
+      {% if not lecture.status.is_processing %}
+      <button class="btn btn-danger btn-sm" type="button" data-open="confirm-delete" title="Delete lecture">
+        {{ icon("trash", "icon-sm") }}<span class="sr-only">Delete</span></button>
+      {% endif %}
     {% endif %}
   </div>
-  {% endif %}
 </div>
 
-<div class="player card">
-  {% if lecture.media_type.value == 'video' %}
-    <video id="player" controls preload="metadata" src="/lectures/{{ lecture.id }}/media"></video>
-  {% else %}
-    <audio id="player" controls preload="metadata" src="/lectures/{{ lecture.id }}/media"></audio>
-  {% endif %}
-</div>
-
-{% if lecture.status.is_processing %}
-<section class="card" id="processing" data-status-url="/api/lectures/{{ lecture.id }}/status">
-  <h2>Processing</h2>
-  <p>Status: <strong id="status-text">{{ lecture.status.value | replace('_', ' ') }}</strong></p>
-  <progress id="status-progress" max="1" value="{{ lecture.progress }}"></progress>
-  <p class="muted">This page refreshes automatically when the transcript is ready.</p>
-</section>
-{% elif lecture.status.value == 'failed' %}
-<section class="card">
-  <h2>Processing failed</h2>
-  <pre class="error">{{ lecture.error }}</pre>
-</section>
-{% elif lecture.transcript %}
-<section class="card">
-  <div class="transcript-head">
-    <h2>Transcript</h2>
-    <span class="muted">{{ lecture.transcript.segments | length }} segments · language: {{ lecture.transcript.language }}
-      · <a href="/api/lectures/{{ lecture.id }}/transcript" target="_blank">JSON</a></span>
-  </div>
-  <input type="search" id="transcript-search" placeholder="Search transcript…">
-  <ol class="transcript" id="transcript">
-    {% for seg in lecture.transcript.segments %}
-    <li data-start="{{ seg.start }}" data-end="{{ seg.end }}">
-      <button class="ts" title="Jump to {{ seg.start | timestamp }}">{{ seg.start | timestamp }}</button>
-      <span class="seg-text">{{ seg.text }}</span>
+{% if is_owner and stages and stages | rejectattr("state", "equalto", "done") | list %}
+<div class="card pipeline">
+  <ol class="pipeline-steps">
+    {% for st in stages %}
+    <li class="ps ps-{{ st.state }}">
+      <span class="ps-dot">{% if st.state == 'done' %}{{ icon("check", "icon-sm") }}{% elif st.state == 'active' %}<span class="spinner"></span>{% elif st.state in ('stopped', 'failed') %}{{ icon("x", "icon-sm") }}{% else %}{{ loop.index }}{% endif %}</span>
+      <span class="ps-text"><strong>{{ st.label }}</strong>
+        <small>{{ {'done': 'Done', 'active': 'In progress', 'queued': 'Waiting', 'stopped': 'Stopped', 'failed': 'Failed', 'pending': 'Not started'}[st.state] }}</small></span>
     </li>
-    {% else %}
-    <li class="muted">No speech was detected in this recording.</li>
     {% endfor %}
   </ol>
-</section>
+  {% if continue_label %}
+  <form method="post" action="/lectures/{{ lecture.id }}/retry" class="inline">
+    <button class="btn btn-sm">{{ icon("arrow-right", "icon-sm") }} {{ continue_label }}</button></form>
+  {% elif notes and notes.status.value in ('cancelled', 'failed') and has_transcript and notes_enabled %}
+  <form method="post" action="/lectures/{{ lecture.id }}/notes" class="inline">
+    <button class="btn btn-sm">{{ icon("arrow-right", "icon-sm") }} {{ 'Continue' if notes.status.value == 'cancelled' else 'Retry' }} – Writing notes</button></form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if shared and not ready %}
+<div class="card empty">
+  <div class="tile-icon">{{ icon("clock") }}</div>
+  <h3>This lecture isn't ready yet</h3>
+  <p>It's still being processed. Check back in a little while.</p>
+</div>
+{% else %}
+
+<div class="workspace {% if not has_transcript %}single{% endif %}">
+  <div style="min-width:0">
+    {% if lecture.media_path %}
+      {% if lecture.media_type.value == 'video' %}
+        <div class="card player"><video id="player" controls preload="metadata" src="{{ media_url }}"{% if lecture.thumbnail_path %} poster="{{ thumb_url }}"{% endif %}></video>
+          <div class="player-error" id="player-error" hidden>{{ icon("alert", "icon-sm") }}
+            <span>This browser can't play this video's format.{% if is_owner and lecture.source_url %} Use <strong>Edit &rarr; Re-download</strong> to fetch a compatible copy.{% endif %} The transcript and notes still work.</span></div></div>
+      {% else %}
+        <div class="card player audio"><div class="tile-icon">{{ icon("audio") }}</div><audio id="player" controls preload="metadata" src="{{ media_url }}"></audio></div>
+      {% endif %}
+    {% endif %}
+
+    {% if lecture.status.is_processing %}
+    {% if lecture.source_url %}
+      {% set steps = [('Downloading', 'download'), ('Extracting audio', 'audio'), ('Transcribing', 'mic'), ('Writing notes', 'file-text')] %}
+      {% set cur = {'downloading': 0, 'uploaded': 1, 'extracting_audio': 1, 'transcribing': 2}[lecture.status.value] %}
+    {% else %}
+      {% set steps = [('Uploaded', 'upload'), ('Extracting audio', 'audio'), ('Transcribing', 'mic'), ('Writing notes', 'file-text')] %}
+      {% set cur = {'uploaded': 1, 'extracting_audio': 1, 'transcribing': 2}.get(lecture.status.value, 1) %}
+    {% endif %}
+    <section class="card card-body" id="processing" data-status-url="/api/lectures/{{ lecture.id }}/status" data-status="{{ lecture.status.value }}">
+      <div class="status-line" style="margin-bottom:16px">
+        <span class="spinner"></span>
+        <div style="flex:1">
+          <h2>{% if lecture.status.value == 'downloading' %}Downloading the video{% elif is_owner %}Processing the lecture{% else %}Transcript and notes are on their way{% endif %}</h2>
+          <span class="muted small">{% if is_owner %}Runs in the background. You can leave this page; progress also shows in the tasks panel.{% else %}You can watch the lecture now. The transcript, notes and quiz appear here when they're ready.{% endif %}</span>
+        </div>
+        {% if is_owner %}<button class="btn btn-danger btn-sm" type="button" data-stop="processing">{{ icon("x", "icon-sm") }} Stop</button>{% endif %}
+      </div>
+      <div class="stepper">
+        {% for label, ico in steps %}
+        {% set i = loop.index0 %}
+        <div class="step {% if i < cur %}done{% elif i == cur %}current{% endif %}">
+          <div class="step-bar"><div {% if i == cur and i in (0, 2) %}id="status-progress" style="width: {{ (lecture.progress * 100) | round }}%"{% elif i == cur %}style="width: 15%"{% endif %}></div></div>
+          <span class="step-label">{{ icon("check" if i < cur else ico, "icon-sm") }} {{ label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="muted small" style="margin:0">Status: <strong id="status-text">{{ lecture.status.value | replace('_', ' ') }}</strong>
+        {% if cur in (0, 2) %}&middot; <span id="status-pct">{{ (lecture.progress * 100) | round | int }}</span>%{% endif %}</p>
+    </section>
+
+    {% elif lecture.status.value in ('failed', 'cancelled') %}
+    <section class="card card-body">
+      {% if lecture.status.value == 'cancelled' %}
+      <h2 style="margin-bottom:8px">Processing was stopped</h2>
+      <p class="muted" style="margin:0">{% if is_owner %}Finished stages are kept. Press <strong>{{ continue_label }}</strong> to pick up where it stopped.{% else %}The transcript and notes aren't ready yet.{% endif %}</p>
+      {% else %}
+      <h2 style="margin-bottom:12px">{% if lecture.source_url and not lecture.media_path %}The import failed{% else %}Processing failed{% endif %}</h2>
+      <div class="alert alert-error">{{ icon("alert", "icon-sm") }}<pre>{{ lecture.error }}</pre></div>
+      {% if is_owner %}<p class="muted small" style="margin:12px 0 0">Press <strong>{{ continue_label }}</strong> to try that stage again.</p>{% endif %}
+      {% endif %}
+    </section>
+
+    {% elif has_transcript %}
+    <section class="card" id="notes"
+      {% if notes and notes.status.is_processing %}data-notes-url="/api/lectures/{{ lecture.id }}/notes"{% endif %}>
+      <div class="card-head">
+        <div class="tabs" role="tablist">
+          <button class="tab" type="button" role="tab" aria-selected="true" data-tab="panel-notes">{{ icon("file-text", "icon-sm") }} Notes</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-tab="panel-quiz" {% if not has_quiz %}disabled{% endif %}>
+            {{ icon("quiz", "icon-sm") }} Quiz {% if has_quiz %}<span class="count">{{ c.mcqs | length }}</span>{% endif %}</button>
+          {% if is_owner and has_quiz %}
+          <button class="tab" type="button" role="tab" aria-selected="false" data-tab="panel-results">{{ icon("check-circle", "icon-sm") }} Results <span class="count" id="results-count">{{ lecture.attempts | length }}</span></button>
+          {% endif %}
+        </div>
+        {% if is_owner and not (notes and notes.status.is_processing) %}
+        <div class="row" style="gap:6px">
+          {% if c %}
+          <a class="btn btn-ghost btn-sm" href="/lectures/{{ lecture.id }}/notes/edit">{{ icon("pen", "icon-sm") }} Edit notes &amp; quiz</a>
+          {% if notes_enabled %}<button class="btn btn-ghost btn-sm" type="button" data-open="confirm-regenerate">{{ icon("refresh", "icon-sm") }} Regenerate</button>{% endif %}
+          {% else %}
+          <a class="btn btn-ghost btn-sm" href="/lectures/{{ lecture.id }}/notes/edit">{{ icon("pen", "icon-sm") }} Write my own</a>
+          {% if notes_enabled %}
+          <form method="post" action="/lectures/{{ lecture.id }}/notes" class="inline">
+            <button class="btn btn-sm">{{ icon("file-text", "icon-sm") }} {% if notes and notes.status.value == 'cancelled' %}Continue – Writing notes{% elif notes and notes.status.value == 'failed' %}Retry – Writing notes{% else %}Generate notes{% endif %}</button></form>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="notes-wrap" id="panel-notes" role="tabpanel">
+        {% if notes and notes.status.is_processing %}
+        <div class="stack" style="gap:12px;margin-bottom:{{ '26px' if c else '0' }}">
+          <div class="status-line">
+            <span class="spinner"></span>
+            <div style="flex:1"><strong>{% if c %}Regenerating notes{% else %}Writing notes{% endif %} with {{ notes.model or 'the local model' }}…</strong>
+              <div class="muted small">Runs in the background; you can leave this page.{% if c %} The current notes stay until the new ones are ready.{% endif %}</div></div>
+            {% if is_owner %}<button class="btn btn-danger btn-sm" type="button" data-stop="notes">{{ icon("x", "icon-sm") }} Stop</button>{% endif %}
+          </div>
+          <div class="progress"><div id="notes-progress" style="width: {{ ((notes.progress or 0) * 100) | round }}%"></div></div>
+          {% if not c %}
+          <div class="skeleton" style="width:92%"></div><div class="skeleton" style="width:76%"></div><div class="skeleton" style="width:84%"></div>
+          {% endif %}
+        </div>
+        {% elif notes and notes.status.value == 'failed' %}
+        <div class="alert alert-error" style="margin-bottom:{{ '22px' if c else '0' }}">{{ icon("alert", "icon-sm") }}
+          <div><strong>Couldn't generate notes.</strong> {{ notes.error }}</div></div>
+        {% endif %}
+
+        {% if c %}
+        <div class="summary-card">
+          <span class="eyebrow">Summary</span>
+          <p>{{ c.summary }}</p>
+        </div>
+
+        {% if c.sections | length > 1 %}
+        <nav class="toc" aria-label="Sections">
+          {% for s in c.sections %}<a href="#sec-{{ loop.index }}">{{ s.title }}</a>{% endfor %}
+        </nav>
+        {% endif %}
+
+        {% for s in c.sections %}
+        <div class="notes-section" id="sec-{{ loop.index }}">
+          <h3>{{ s.title }} <button class="ts" data-start="{{ s.start }}">{{ icon("clock", "icon-sm") }}{{ s.start | timestamp }}</button></h3>
+          <p>{{ s.summary }}</p>
+          <ul class="key-points">
+            {% for k in s.key_points %}
+            <li><button class="ts" data-start="{{ k.start }}">{{ k.start | timestamp }}</button><span>{{ k.text }}</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+
+        {% if c.definitions %}
+        <h3 class="section-title">{{ icon("book", "icon-sm") }} Key definitions</h3>
+        <dl class="definitions">
+          {% for d in c.definitions %}
+          <div class="definition">
+            <dt>{{ d.term }} <button class="ts" data-start="{{ d.start }}">{{ d.start | timestamp }}</button></dt>
+            <dd>{{ d.definition }}</dd>
+          </div>
+          {% endfor %}
+        </dl>
+        {% endif %}
+
+        <div class="notes-foot">{{ icon("shield", "icon-sm") }} {% if notes.edited %}Edited by {{ lecture.teacher.name }}{% if notes.model and 'teacher' not in notes.model %} (first draft by {{ notes.model }}){% endif %}.{% else %}Generated on this computer by {{ notes.model }}. Check important details against the lecture.{% endif %}
+          {% if is_owner %}<span class="spacer"></span><a href="/api/lectures/{{ lecture.id }}/notes" target="_blank">JSON</a>{% endif %}</div>
+
+        {% elif not (notes and notes.status.is_processing) %}
+        <div class="empty" style="padding:36px 12px">
+          <div class="tile-icon">{{ icon("file-text") }}</div>
+          <h3>{% if notes and notes.status.value == 'cancelled' %}Notes generation was stopped{% else %}No notes yet{% endif %}</h3>
+          <p>{% if not notes_enabled %}Notes are turned off (<code>NOTES_ENABLED=false</code>).
+            {% elif is_owner %}Turn the transcript into a summary, key points, definitions and a quiz.
+            {% else %}Your teacher hasn't added notes to this lecture yet.{% endif %}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if has_quiz %}
+      <div class="notes-wrap" id="panel-quiz" role="tabpanel" hidden>
+        {% if is_owner %}
+        {# Teacher: answer key preview. Students never get the answers in their page. #}
+        <div class="quiz-head">
+          <div><h3>Quiz preview</h3><span class="muted small">Correct answers are marked. Students take it from the quiz link and see their marks after submitting.</span></div>
+          <button class="btn btn-secondary btn-sm" type="button" data-open="share-dialog">{{ icon("link", "icon-sm") }} Share quiz</button>
+        </div>
+        <ol class="mcqs">
+          {% for q in c.mcqs %}
+          <li class="mcq answered">
+            <p class="mcq-q">{{ q.question }}</p>
+            <div class="mcq-options">
+              {% for opt in q.options %}
+              <div class="mcq-opt {% if loop.index0 == q.answer_index %}correct{% endif %}"><b>{{ "ABCDEFGHIJ"[loop.index0] }}</b><span>{{ opt }}</span></div>
+              {% endfor %}
+            </div>
+            <div class="mcq-explain">{{ icon("bulb", "icon-sm") }}<div>{{ q.explanation }} <button class="ts" data-start="{{ q.start }}">{{ q.start | timestamp }}</button></div></div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        {% set mine = (lecture.attempts | selectattr("user_id", "equalto", user.id) | list) if user else [] %}
+        <div class="empty" style="padding:36px 12px">
+          <div class="tile-icon">{{ icon("quiz") }}</div>
+          <h3>{{ c.mcqs | length }} questions on this lecture</h3>
+          <p>Answer them all, submit, and see your marks straight away.{% if mine %} Your best so far: <strong>{{ (mine | map(attribute="percent") | max) }}%</strong>.{% endif %}</p>
+          <a class="btn" href="{{ quiz_url }}">{{ icon("quiz", "icon-sm") }} {% if mine %}Take it again{% else %}Take the quiz{% endif %}</a>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if is_owner and has_quiz %}
+      <div class="notes-wrap" id="panel-results" role="tabpanel" hidden data-results-url="/api/lectures/{{ lecture.id }}/results">
+        <div class="quiz-head">
+          <div><h3>Live results</h3><span class="muted small"><span class="live-dot"></span> Updates automatically as students submit.</span></div>
+          <div class="row">
+            <button class="btn btn-secondary btn-sm" type="button" data-open="share-dialog">{{ icon("link", "icon-sm") }} Share quiz</button>
+            <button class="btn btn-ghost btn-sm" type="button" data-open="confirm-clear" id="clear-results-btn">{{ icon("trash", "icon-sm") }} Clear</button>
+          </div>
+        </div>
+        <div class="results-stats">
+          <div><span class="stat-value" id="r-count">–</span><span class="stat-label">submissions</span></div>
+          <div><span class="stat-value" id="r-avg">–</span><span class="stat-label">average score</span></div>
+          <div><span class="stat-value" id="r-q">{{ c.mcqs | length }}</span><span class="stat-label">questions</span></div>
+        </div>
+        <div id="r-empty" class="empty" style="padding:28px 12px" hidden>
+          <h3>No submissions yet</h3><p>Share the quiz link with your students. Results appear here as they submit.</p>
+        </div>
+        <div id="r-body" hidden>
+          <h3 class="section-title">Students</h3>
+          <div class="table-wrap"><table class="results-table">
+            <thead><tr><th>Name</th><th>Score</th><th></th><th>Submitted</th></tr></thead>
+            <tbody id="r-rows"></tbody>
+          </table></div>
+          <h3 class="section-title">Questions</h3>
+          <ol class="q-stats" id="r-questions"></ol>
+          <p class="muted small" id="r-older" hidden></p>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  {% if has_transcript %}
+  <aside class="card transcript-panel">
+    <div class="card-head">
+      <h2>{{ icon("file-text") }} Transcript</h2>
+      <div class="row" style="gap:6px">
+        <span class="muted small" id="transcript-meta">{{ lecture.transcript.segments | length }} lines{% if lecture.transcript.edited %} &middot; edited{% endif %}</span>
+        {% if is_owner %}
+        <button class="btn btn-ghost btn-sm" type="button" id="transcript-edit">{{ icon("pen", "icon-sm") }} Edit</button>
+        <button class="btn btn-sm" type="button" id="transcript-save" hidden>Save</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="transcript-cancel" hidden>Cancel</button>
+        {% endif %}
+      </div>
+    </div>
+    <div class="edit-hint" id="transcript-hint" hidden>{{ icon("info", "icon-sm") }} Click any line to correct it. Timestamps stay the same.</div>
+    <div class="transcript-tools">
+      <div class="input-icon">{{ icon("search", "icon-sm") }}
+        <input class="input" type="search" id="transcript-search" placeholder="Search the transcript" aria-label="Search transcript"></div>
+      <div class="row">
+        <label class="follow"><input type="checkbox" id="follow" checked> Follow along</label>
+        <span class="spacer"></span><span class="search-count" id="search-count"></span>
+      </div>
+    </div>
+    <ol class="transcript" id="transcript">
+      {% for seg in lecture.transcript.segments %}
+      <li data-start="{{ seg.start }}" data-end="{{ seg.end }}" data-index="{{ loop.index0 }}">
+        <button class="ts" title="Jump to {{ seg.start | timestamp }}">{{ seg.start | timestamp }}</button>
+        <span class="seg-text">{{ seg.text }}</span>
+      </li>
+      {% else %}
+      <li class="muted">No speech was detected in this recording.</li>
+      {% endfor %}
+    </ol>
+  </aside>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block modals %}
+{% set is_owner = (user and user.is_teacher and user.id == lecture.teacher_id and not shared) %}
+{% if is_owner %}
+<dialog class="modal" id="share-dialog" aria-labelledby="share-title" data-share-url="/api/lectures/{{ lecture.id }}/share">
+  <div class="modal-head">
+    <div><h2 id="share-title">Share with students</h2>
+      <p>Anyone with a link can open it. No account is needed.</p></div>
+    <button class="icon-btn" type="button" data-close aria-label="Close">{{ icon("x") }}</button>
+  </div>
+  <div class="modal-body stack" id="share-body">
+    <div id="share-off" hidden>
+      <p style="margin:0">Create links students can open directly: one for the lecture (video, notes and transcript) and one for the quiz.
+        Quiz marks appear in the <strong>Results</strong> tab as students submit.</p>
+    </div>
+    <div id="share-on" class="stack" hidden>
+      <label class="field"><span>{{ icon("video", "icon-sm") }} Lecture link</span>
+        <div class="copy-row"><input class="input" readonly id="share-lecture"><button class="btn btn-secondary btn-sm" type="button" data-copy="share-lecture">Copy</button></div></label>
+      <label class="field"><span>{{ icon("quiz", "icon-sm") }} Quiz link</span>
+        <div class="copy-row"><input class="input" readonly id="share-quiz"><button class="btn btn-secondary btn-sm" type="button" data-copy="share-quiz">Copy</button></div>
+        <small id="share-noquiz" hidden>The quiz appears once notes have been generated.</small></label>
+      <div class="alert alert-warn" id="share-local" hidden>{{ icon("info", "icon-sm") }}
+        <div>These links use <code>127.0.0.1</code>, which only works on this computer. <span id="share-lan"></span></div></div>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn btn-ghost btn-sm" type="button" id="share-disable" hidden>Stop sharing</button>
+    <button class="btn btn-ghost btn-sm" type="button" id="share-reset" hidden title="Old links stop working">New links</button>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="share-enable" hidden>{{ icon("link", "icon-sm") }} Create share links</button>
+    <button class="btn btn-secondary" type="button" data-close id="share-done" hidden>Done</button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="edit-details" aria-labelledby="edit-title">
+  <div class="modal-head">
+    <div><h2 id="edit-title">Edit lecture</h2><p>Changes show for students straight away.</p></div>
+    <button class="icon-btn" type="button" data-close aria-label="Close">{{ icon("x") }}</button>
+  </div>
+  <form method="post" action="/lectures/{{ lecture.id }}/details" class="modal-body stack" id="details-form">
+    <label class="field"><span>Title</span><input name="title" required maxlength="200" value="{{ lecture.title }}"></label>
+    <label class="field"><span>Description <span class="muted">(optional)</span></span>
+      <textarea name="description" rows="3">{{ lecture.description }}</textarea></label>
+    <div class="field">
+      <span>Thumbnail</span>
+      <div class="thumb-editor">
+        <div class="thumb-preview" id="thumb-preview">
+          {% if lecture.thumbnail_path %}<img src="{{ thumb_url }}?v={{ range(1, 99999) | random }}" alt="">{% else %}{{ icon("video" if lecture.media_type.value == 'video' else "audio") }}{% endif %}
+        </div>
+        <div class="stack" style="gap:8px">
+          <label class="btn btn-secondary btn-sm">{{ icon("upload", "icon-sm") }} Upload image
+            <input type="file" accept="image/*" id="thumb-file" hidden></label>
+          {% if lecture.media_type.value == 'video' and lecture.media_path %}
+          <button class="btn btn-secondary btn-sm" type="button" id="thumb-frame">{{ icon("video", "icon-sm") }} Use current video frame</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="thumb-auto">{{ icon("refresh", "icon-sm") }} Pick automatically</button>
+          {% endif %}
+          <small class="muted" id="thumb-status">{% if lecture.media_type.value == 'video' %}Pause the video where you want, then use “current video frame”.{% else %}JPG, PNG or WebP, up to 8 MB.{% endif %}</small>
+        </div>
+      </div>
+    </div>
+  </form>
+  {% if lecture.source_url and not lecture.status.is_processing %}
+  <form method="post" action="/lectures/{{ lecture.id }}/redownload" class="modal-body" style="padding-top:0">
+    <div class="redownload">{{ icon("download", "icon-sm") }}
+      <span>Video won't play? Fetch it again in a format every browser supports. The transcript and notes are kept.</span>
+      <button class="btn btn-secondary btn-sm">Re-download</button></div>
+  </form>
+  {% endif %}
+  <div class="modal-foot">
+    <button class="btn btn-secondary" type="button" data-close>Cancel</button>
+    <button class="btn" type="submit" form="details-form">Save</button>
+  </div>
+</dialog>
+
+<dialog class="modal modal-sm" id="confirm-delete" aria-labelledby="del-title">
+  <div class="modal-head">
+    <div><h2 id="del-title">Delete this lecture?</h2>
+      <p>“{{ lecture.title }}”, its recording, transcript, notes and quiz results will be removed for everyone. This can't be undone.</p></div>
+  </div>
+  <form method="post" action="/lectures/{{ lecture.id }}/delete" class="modal-foot" style="margin-top:18px">
+    <button class="btn btn-secondary" type="button" data-close autofocus>Cancel</button>
+    <button class="btn btn-danger solid">{{ icon("trash", "icon-sm") }} Delete lecture</button>
+  </form>
+</dialog>
+
+<dialog class="modal modal-sm" id="confirm-regenerate" aria-labelledby="regen-title">
+  <div class="modal-head">
+    <div><h2 id="regen-title">Regenerate the notes?</h2>
+      <p>The current notes and quiz stay visible until the new ones are ready, then get replaced. Existing quiz results are kept but marked as taken on the old quiz.</p></div>
+  </div>
+  <form method="post" action="/lectures/{{ lecture.id }}/notes" class="modal-foot" style="margin-top:18px">
+    <button class="btn btn-secondary" type="button" data-close autofocus>Cancel</button>
+    <button class="btn">{{ icon("refresh", "icon-sm") }} Regenerate</button>
+  </form>
+</dialog>
+
+<dialog class="modal modal-sm" id="confirm-clear" aria-labelledby="clear-title">
+  <div class="modal-head">
+    <div><h2 id="clear-title">Clear all quiz results?</h2>
+      <p>Every submission for this lecture will be deleted. This can't be undone.</p></div>
+  </div>
+  <form method="post" action="/lectures/{{ lecture.id }}/results/clear" class="modal-foot" style="margin-top:18px">
+    <button class="btn btn-secondary" type="button" data-close autofocus>Cancel</button>
+    <button class="btn btn-danger solid">{{ icon("trash", "icon-sm") }} Clear results</button>
+  </form>
+</dialog>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
 const player = document.getElementById("player");
+const LECTURE_ID = {{ lecture.id }};
 
-// Poll processing status until the transcript is ready.
+// Processing: poll; reload when the stage changes or it finishes.
 const processing = document.getElementById("processing");
 if (processing) {
   const poll = async () => {
@@ -78,40 +463,259 @@ if (processing) {
       const r = await fetch(processing.dataset.statusUrl);
       if (r.ok) {
         const s = await r.json();
-        document.getElementById("status-text").textContent = s.status.replace("_", " ");
-        document.getElementById("status-progress").value = s.progress;
-        if (s.status === "completed" || s.status === "failed") return window.location.reload();
+        if (s.status !== processing.dataset.status) return window.location.reload();
+        const bar = document.getElementById("status-progress");
+        if (bar) bar.style.width = (s.progress * 100) + "%";
+        const pct = document.getElementById("status-pct");
+        if (pct) pct.textContent = Math.round(s.progress * 100);
       }
     } catch (e) { /* retry on next tick */ }
-    setTimeout(poll, 3000);
+    setTimeout(poll, 2000);
   };
-  setTimeout(poll, 3000);
+  setTimeout(poll, 2000);
 }
 
-// Transcript: click a timestamp to seek, highlight the current segment, filter by search.
+// Notes: poll progress; reload when done.
+const notesCard = document.getElementById("notes");
+if (notesCard && notesCard.dataset.notesUrl) {
+  const pollNotes = async () => {
+    try {
+      const r = await fetch(notesCard.dataset.notesUrl);
+      if (r.ok) {
+        const n = await r.json();
+        const bar = document.getElementById("notes-progress");
+        if (bar) bar.style.width = (n.progress * 100) + "%";
+        if (!["pending", "generating"].includes(n.status)) return window.location.reload();
+      }
+    } catch (e) { /* retry on next tick */ }
+    setTimeout(pollNotes, 3000);
+  };
+  setTimeout(pollNotes, 3000);
+}
+
+// Stop buttons
+document.querySelectorAll("[data-stop]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Stopping…";
+    try {
+      await fetch(`/api/lectures/${LECTURE_ID}/stop`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ what: btn.dataset.stop }),
+      });
+    } catch (e) { /* the poll picks up the result either way */ }
+  });
+});
+
+// Tabs (remember the last one, e.g. Results)
+const selectTab = (id) => {
+  document.querySelectorAll("[data-tab]").forEach((t) => {
+    const on = t.dataset.tab === id;
+    t.setAttribute("aria-selected", on);
+    const panel = document.getElementById(t.dataset.tab);
+    if (panel) panel.hidden = !on;
+  });
+};
+document.querySelectorAll("[data-tab]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    if (tab.disabled) return;
+    selectTab(tab.dataset.tab);
+    history.replaceState(null, "", tab.dataset.tab === "panel-notes" ? location.pathname : "#" + tab.dataset.tab.replace("panel-", ""));
+  });
+});
+const hashTab = location.hash.match(/^#(quiz|results)$/);
+if (hashTab && document.querySelector(`[data-tab="panel-${hashTab[1]}"]:not([disabled])`)) selectTab("panel-" + hashTab[1]);
+
+// Timestamps seek the player; #t=<seconds> in the URL (from quiz results) jumps there.
+const seek = (start) => {
+  if (!player) return;
+  player.currentTime = parseFloat(start);
+  player.play().catch(() => {});
+};
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button.ts");
+  if (!btn || !player) return;
+  const start = btn.dataset.start ?? btn.closest("li[data-start]")?.dataset.start;
+  if (start === undefined) return;
+  seek(start);
+  if (player.getBoundingClientRect().bottom < 80) window.scrollTo({ top: 0, behavior: "smooth" });
+});
+const tMatch = location.hash.match(/^#t=([\d.]+)$/);
+if (tMatch && player) player.addEventListener("loadedmetadata", () => seek(tMatch[1]), { once: true });
+
+// Transcript: highlight/follow current line; search with highlighting.
 const list = document.getElementById("transcript");
 if (list && player) {
   const items = [...list.querySelectorAll("li[data-start]")];
-  list.addEventListener("click", (e) => {
-    const li = e.target.closest("li[data-start]");
-    if (!li || !e.target.classList.contains("ts")) return;
-    player.currentTime = parseFloat(li.dataset.start);
-    player.play();
-  });
+  const texts = items.map((li) => li.querySelector(".seg-text").textContent);
+  const follow = document.getElementById("follow");
   let active = null;
   player.addEventListener("timeupdate", () => {
     const t = player.currentTime;
     const cur = items.find((li) => t >= +li.dataset.start && t < +li.dataset.end);
-    if (cur !== active) {
-      active?.classList.remove("active");
-      cur?.classList.add("active");
-      active = cur;
-    }
+    if (cur === active) return;
+    active?.classList.remove("active");
+    cur?.classList.add("active");
+    active = cur;
+    if (cur && follow.checked && !player.paused) list.scrollTo({ top: cur.offsetTop - list.clientHeight / 3, behavior: "smooth" });
   });
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   document.getElementById("transcript-search").addEventListener("input", (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    items.forEach((li) => { li.hidden = q && !li.textContent.toLowerCase().includes(q); });
+    const q = e.target.value.trim();
+    const re = q ? new RegExp(escRe(q), "i") : null;
+    let hits = 0;
+    items.forEach((li, i) => {
+      const match = !re || re.test(texts[i]);
+      li.hidden = !match;
+      li.querySelector(".seg-text").innerHTML = re && match
+        ? esc(texts[i]).replace(new RegExp(escRe(esc(q)), "gi"), (m) => `<mark>${m}</mark>`) : esc(texts[i]);
+      if (re && match) hits++;
+    });
+    document.getElementById("search-count").textContent = q ? `${hits} match${hits === 1 ? "" : "es"}` : "";
   });
+}
+
+// Video the browser can't decode (e.g. AV1 without the codec installed)
+if (player && player.tagName === "VIDEO") {
+  const showErr = () => { const el = document.getElementById("player-error"); if (el) el.hidden = false; };
+  player.addEventListener("error", showErr);
+  player.addEventListener("loadedmetadata", () => { if (player.videoWidth === 0 && player.duration > 0) showErr(); });
+}
+
+// Thumbnail editor (teacher)
+const thumbStatus = document.getElementById("thumb-status");
+if (thumbStatus) {
+  const setThumb = (d) => {
+    document.getElementById("thumb-preview").innerHTML = d.url ? `<img src="${d.url}" alt="">` : "";
+    thumbStatus.textContent = d.url ? "Thumbnail updated." : "No thumbnail.";
+  };
+  const send = async (url, opts) => {
+    thumbStatus.textContent = "Saving…";
+    const r = await fetch(url, { method: "POST", ...opts });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) setThumb(d); else thumbStatus.textContent = d.detail || "Couldn't update the thumbnail.";
+  };
+  document.getElementById("thumb-file").addEventListener("change", (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append("file", f);
+    send(`/api/lectures/${LECTURE_ID}/thumbnail`, { body: fd });
+  });
+  document.getElementById("thumb-frame")?.addEventListener("click", () => send(`/api/lectures/${LECTURE_ID}/thumbnail/frame`, {
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ at: player ? player.currentTime : 0 }) }));
+  document.getElementById("thumb-auto")?.addEventListener("click", () => send(`/api/lectures/${LECTURE_ID}/thumbnail/auto`, {}));
+}
+
+// Transcript corrections (teacher)
+const editBtn = document.getElementById("transcript-edit");
+if (editBtn && list) {
+  const saveBtn = document.getElementById("transcript-save"), cancelBtn = document.getElementById("transcript-cancel");
+  const spans = () => [...list.querySelectorAll("li[data-index] .seg-text")];
+  let original = [];
+  const setMode = (on) => {
+    editBtn.hidden = on; saveBtn.hidden = !on; cancelBtn.hidden = !on;
+    document.getElementById("transcript-hint").hidden = !on;
+    document.getElementById("transcript-search").disabled = on;
+    list.classList.toggle("editing", on);
+    spans().forEach((s) => { s.contentEditable = on ? "plaintext-only" : "false"; });
+  };
+  editBtn.addEventListener("click", () => {
+    document.getElementById("transcript-search").value = "";
+    list.querySelectorAll("li").forEach((li) => (li.hidden = false));
+    original = spans().map((s) => s.textContent);
+    spans().forEach((s, i) => (s.textContent = original[i]));  // drop search highlights
+    setMode(true);
+  });
+  cancelBtn.addEventListener("click", () => { spans().forEach((s, i) => (s.textContent = original[i])); setMode(false); });
+  saveBtn.addEventListener("click", async () => {
+    const changed = spans().map((s, i) => ({ index: +s.closest("li").dataset.index, text: s.textContent.trim() }))
+      .filter((e, i) => e.text !== original[i].trim());
+    if (!changed.length) { setMode(false); return; }
+    saveBtn.disabled = true; saveBtn.textContent = "Saving…";
+    const r = await fetch(`/api/lectures/${LECTURE_ID}/transcript`, { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segments: changed }) });
+    saveBtn.disabled = false; saveBtn.textContent = "Save";
+    if (r.ok) { window.location.reload(); } else { window.showToast("Couldn't save the transcript. Please try again.", "error"); }
+  });
+  // Clicking a line while editing shouldn't seek the video
+  list.addEventListener("click", (e) => { if (list.classList.contains("editing") && e.target.closest(".seg-text")) e.stopPropagation(); }, true);
+}
+
+// Live results (teacher)
+const resultsPanel = document.getElementById("panel-results");
+if (resultsPanel) {
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ago = (iso) => {
+    const s = Math.max(0, (Date.now() - new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z")) / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+    return new Date(iso).toLocaleDateString();
+  };
+  let lastCount = -1;
+  const render = (d) => {
+    document.getElementById("results-count").textContent = d.count;
+    document.getElementById("r-count").textContent = d.count;
+    document.getElementById("r-avg").textContent = d.average_pct === null ? "–" : d.average_pct + "%";
+    document.getElementById("r-empty").hidden = d.count > 0;
+    document.getElementById("r-body").hidden = d.count === 0;
+    document.getElementById("clear-results-btn").hidden = d.count + d.older_attempts === 0;
+    document.getElementById("r-rows").innerHTML = d.attempts.map((a, i) => `
+      <tr class="${i < d.count - lastCount && lastCount >= 0 ? "fresh" : ""}">
+        <td><strong>${esc(a.name)}</strong>${a.account ? "" : ' <span class="muted small">(via link)</span>'}</td>
+        <td class="mono">${a.score}/${a.total}</td>
+        <td><div class="bar ${a.percent >= 70 ? "good" : a.percent >= 40 ? "ok" : "low"}"><div style="width:${a.percent}%"></div></div><span class="mono small">${a.percent}%</span></td>
+        <td class="muted small">${ago(a.submitted_at)}</td>
+      </tr>`).join("");
+    document.getElementById("r-questions").innerHTML = d.per_question.map((q) => `
+      <li><span>${esc(q.question)}</span>
+        <span class="q-bar"><div class="bar ${q.correct_pct >= 70 ? "good" : q.correct_pct >= 40 ? "ok" : "low"}"><div style="width:${q.correct_pct ?? 0}%"></div></div>
+        <span class="mono small">${q.correct_pct === null ? "–" : q.correct_pct + "% right"}</span></span></li>`).join("");
+    const older = document.getElementById("r-older");
+    older.hidden = !d.older_attempts;
+    older.textContent = d.older_attempts ? `${d.older_attempts} older submission(s) were on a previous version of the quiz and aren't counted.` : "";
+    lastCount = d.count;
+  };
+  const pollResults = async () => {
+    try {
+      const r = await fetch(resultsPanel.dataset.resultsUrl);
+      if (r.ok) render(await r.json());
+    } catch (e) { /* retry */ }
+    setTimeout(pollResults, 4000);
+  };
+  pollResults();
+}
+
+// Share dialog (teacher)
+const shareDlg = document.getElementById("share-dialog");
+if (shareDlg) {
+  const $ = (id) => document.getElementById(id);
+  const show = (d) => {
+    $("share-off").hidden = d.enabled; $("share-on").hidden = !d.enabled;
+    $("share-enable").hidden = d.enabled; $("share-done").hidden = !d.enabled;
+    $("share-disable").hidden = !d.enabled; $("share-reset").hidden = !d.enabled;
+    if (d.enabled) {
+      $("share-lecture").value = d.lecture_url; $("share-quiz").value = d.quiz_url;
+      $("share-noquiz").hidden = d.has_quiz;
+      $("share-local").hidden = !d.local_only;
+      $("share-lan").innerHTML = d.lan_hint
+        ? `For students on your Wi-Fi, start the server with <code>--host 0.0.0.0</code> and open the app at <a href="${d.lan_hint}">${d.lan_hint}</a>, then copy the links again.`
+        : "Set <code>PUBLIC_BASE_URL</code> to an address students can reach.";
+    }
+  };
+  const call = async (action) => {
+    const r = await fetch(shareDlg.dataset.shareUrl, action
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) } : {});
+    if (r.ok) show(await r.json());
+  };
+  new MutationObserver(() => { if (shareDlg.open) call(); }).observe(shareDlg, { attributes: true, attributeFilter: ["open"] });
+  $("share-enable").addEventListener("click", () => call("enable"));
+  $("share-disable").addEventListener("click", () => call("disable"));
+  $("share-reset").addEventListener("click", () => { if (confirm("Create new links? The current links will stop working.")) call("reset"); });
+  shareDlg.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+    const input = $(b.dataset.copy);
+    try { await navigator.clipboard.writeText(input.value); } catch (e) { input.select(); document.execCommand("copy"); }
+    b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1500);
+  }));
 }
 </script>
 {% endblock %}

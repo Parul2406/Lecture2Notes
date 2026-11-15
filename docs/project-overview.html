@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lecture2Notes v1 Overview</title>
+<style>
+:root {
+  --bg: #f7f8fb; --surface: #ffffff; --surface-2: #f1f3f8; --text: #1b1f2c; --muted: #5f667a;
+  --border: #e1e4ec; --accent: #4f46e5; --accent-soft: #eceafd; --ok: #15803d; --ok-soft: #e6f6ec;
+  --warn: #b45309; --warn-soft: #fdf3e2; --bad: #b91c1c; --bad-soft: #fdecec;
+  --code-bg: #f3f4f8; --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11131a; --surface: #191c26; --surface-2: #20243a; --text: #e5e7ef; --muted: #9ba1b5;
+    --border: #2b2f40; --accent: #8b8cf8; --accent-soft: #24264a; --ok: #6ee7a0; --ok-soft: #133022;
+    --warn: #fbbf63; --warn-soft: #3a2a12; --bad: #fca5a5; --bad-soft: #3a1717; --code-bg: #1f2230;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11131a; --surface: #191c26; --surface-2: #20243a; --text: #e5e7ef; --muted: #9ba1b5;
+  --border: #2b2f40; --accent: #8b8cf8; --accent-soft: #24264a; --ok: #6ee7a0; --ok-soft: #133022;
+  --warn: #fbbf63; --warn-soft: #3a2a12; --bad: #fca5a5; --bad-soft: #3a1717; --code-bg: #1f2230;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+code, pre { font-family: var(--mono); font-size: .88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
+  overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+h1, h2, h3 { line-height: 1.25; }
+h2 { margin: 0 0 14px; font-size: 1.55rem; }
+h3 { margin: 26px 0 8px; font-size: 1.12rem; }
+
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+nav.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); }
+nav.toc .brand { font-weight: 700; margin-bottom: 14px; }
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+nav.toc li { counter-increment: s; }
+nav.toc a { display: block; padding: 5px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: .93rem; }
+nav.toc a::before { content: counter(s) ". "; color: var(--accent); }
+nav.toc a:hover { background: var(--surface-2); color: var(--text); }
+main { padding: 28px 40px 80px; min-width: 0; }
+
+header.hero { padding: 8px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 30px; }
+header.hero h1 { font-size: 2.1rem; margin: 6px 0 10px; }
+header.hero p { color: var(--muted); max-width: 760px; margin: 0; }
+.eyebrow { font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip { font-size: .82rem; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+section { margin-bottom: 52px; scroll-margin-top: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid .card h3 { margin-top: 0; }
+.muted { color: var(--muted); }
+.lead { font-size: 1.04rem; max-width: 820px; }
+
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; font-size: .93rem; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--surface-2); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.table-wrap { overflow-x: auto; margin: 10px 0; }
+
+.pipeline { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 16px 0; }
+.step { flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--accent);
+  border-radius: 10px; padding: 12px; }
+.step b { display: block; margin-bottom: 4px; }
+.step small { color: var(--muted); display: block; line-height: 1.45; }
+.arrow { align-self: center; color: var(--muted); font-size: 1.3rem; }
+
+.arch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+.arch .col { display: flex; flex-direction: column; gap: 10px; }
+.arch .col h4 { margin: 0 0 2px; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: .9rem; }
+.box b { display: block; }
+.box.ai { border-color: var(--accent); background: var(--accent-soft); }
+
+.status { display: inline-block; font: 600 .78rem var(--mono); padding: 2px 8px; border-radius: 6px; background: var(--surface-2); }
+.s-ok { background: var(--ok-soft); color: var(--ok); }
+.s-bad { background: var(--bad-soft); color: var(--bad); }
+.s-run { background: var(--accent-soft); color: var(--accent); }
+
+.callout { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+.callout.ok { border-color: var(--ok); background: var(--ok-soft); }
+
+.module { margin-bottom: 14px; }
+.module summary { cursor: pointer; font-weight: 600; padding: 12px 16px; list-style: none; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.module summary::-webkit-details-marker { display: none; }
+.module summary::before { content: "▸"; color: var(--accent); }
+.module[open] summary::before { content: "▾"; }
+.module summary code { font-weight: 600; }
+.module summary span { color: var(--muted); font-weight: 400; font-size: .92rem; }
+.module .body { padding: 0 18px 14px 34px; }
+.module.card { padding: 0; }
+ul.tight { margin: 6px 0; padding-left: 20px; }
+ul.tight li { margin: 3px 0; }
+
+.theme-toggle { position: fixed; top: 14px; right: 16px; background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; font: inherit; font-size: .85rem; cursor: pointer; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+  nav.toc ol { columns: 2; }
+  main { padding: 20px 16px 60px; }
+  .arch { grid-template-columns: 1fr; }
+  .arrow { transform: rotate(90deg); flex-basis: 100%; text-align: center; }
+  header.hero h1 { font-size: 1.6rem; }
+}
+@media print { nav.toc, .theme-toggle { display: none; } .layout { display: block; } }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button">Toggle theme</button>
+<div class="layout">
+<nav class="toc">
+  <div class="brand">Lecture2Notes v1</div>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#ai">AI &amp; models</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#pipeline">Processing pipeline</a></li>
+    <li><a href="#stack">Tech stack</a></li>
+    <li><a href="#modules">Modules</a></li>
+    <li><a href="#database">Database</a></li>
+    <li><a href="#routes">Routes &amp; API</a></li>
+    <li><a href="#security">Auth &amp; security</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#setup">Setup &amp; running</a></li>
+    <li><a href="#testing">Testing &amp; fixes</a></li>
+    <li><a href="#repo">Repository</a></li>
+    <li><a href="#roadmap">Limitations &amp; roadmap</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Project documentation · Version 1</div>
+  <h1>Lecture2Notes: lectures to timestamped transcripts</h1>
+  <p>A Python web application where teachers upload recorded lectures (video or audio). The server extracts the
+     audio with FFmpeg, transcribes it locally with OpenAI's Whisper speech-recognition model, and stores a
+     timestamped JSON transcript in the database. Students can then read along, search, and jump to any moment of the lecture.</p>
+  <div class="chips">
+    <span class="chip">Python 3.14</span><span class="chip">FastAPI</span><span class="chip">SQLAlchemy + SQLite</span>
+    <span class="chip">FFmpeg</span><span class="chip">Whisper (faster-whisper)</span><span class="chip">Runs fully offline</span>
+  </div>
+</header>
+
+<!-- 1 -->
+<section id="overview">
+  <h2>Overview</h2>
+  <p class="lead">Version 1 covers the foundation of the product: user accounts with two roles, lecture upload, and an
+     automatic speech-to-text pipeline that produces a structured, timestamped transcript.</p>
+  <div class="grid">
+    <div class="card"><h3>Teachers</h3>
+      <ul class="tight"><li>Sign up and log in as a teacher</li><li>Upload lecture videos or audio recordings</li>
+      <li>Watch processing progress live</li><li>Retry failed jobs, delete lectures</li></ul></div>
+    <div class="card"><h3>Students</h3>
+      <ul class="tight"><li>Sign up and log in as a student</li><li>Browse all transcribed lectures</li>
+      <li>Play the lecture alongside its transcript</li><li>Click a timestamp to jump; search the text</li></ul></div>
+    <div class="card"><h3>System</h3>
+      <ul class="tight"><li>FFmpeg extracts and normalises the audio</li><li>Whisper runs locally (no cloud API, no cost per minute)</li>
+      <li>Transcript stored as JSON segments: <code>start</code>, <code>end</code>, <code>text</code>, word timings</li>
+      <li>JSON API for status and transcripts</li></ul></div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="features">
+  <h2>Features in v1</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>Feature</th><th>Details</th></tr>
+    <tr><td>Accounts</td><td>Sign up</td><td>Name, email, password (8+ characters, confirmed), and role: <em>Teacher</em> or <em>Student</em>. Emails are unique and stored lower-case.</td></tr>
+    <tr><td>Accounts</td><td>Log in / log out</td><td>Session cookie valid for 14 days. After login, the user returns to the page they originally asked for.</td></tr>
+    <tr><td>Upload</td><td>Lecture upload (teacher)</td><td>Title, optional description, and one file. Video: mp4, mkv, mov, avi, webm, m4v, wmv, flv, mpeg, mpg. Audio: mp3, wav, m4a, aac, ogg, oga, flac, opus, wma. A progress bar shows upload progress. Default size limit is 2 GB.</td></tr>
+    <tr><td>Processing</td><td>Automatic transcription</td><td>Starts as soon as the upload finishes. Runs in the background, so the website stays responsive.</td></tr>
+    <tr><td>Processing</td><td>Live status</td><td>The lecture page polls every 3 seconds, shows the current stage and a progress bar, and reloads when the transcript is ready.</td></tr>
+    <tr><td>Processing</td><td>Retry and recovery</td><td>Failed lectures show the error, and the teacher can press <em>Retry</em>. Jobs interrupted by a server restart are resumed automatically.</td></tr>
+    <tr><td>Viewing</td><td>Player + transcript</td><td>HTML5 video/audio player with seeking support. Each transcript line has a clickable timestamp, the line being spoken is highlighted, and there is a search box to filter lines.</td></tr>
+    <tr><td>Viewing</td><td>Transcript JSON</td><td>A "JSON" link on the lecture page and at <code>/api/lectures/{id}/transcript</code>.</td></tr>
+    <tr><td>Management</td><td>Delete lecture (teacher)</td><td>Removes the database rows (lecture and transcript) and the uploaded and extracted files from disk.</td></tr>
+    <tr><td>UI</td><td>Responsive, light/dark</td><td>Works on phones. Follows the system's light or dark theme.</td></tr>
+  </table></div>
+</section>
+
+<!-- 3 -->
+<section id="ai">
+  <h2>AI &amp; models used</h2>
+  <p class="lead">The only AI in v1 is <strong>speech recognition</strong>. It runs entirely on the local machine:
+     no audio is sent to any external service and there is no per-minute cost.</p>
+
+  <div class="grid">
+    <div class="card"><h3>Whisper (OpenAI, open-source)</h3>
+      <p>A speech-recognition model trained on 680,000 hours of multilingual audio. It turns speech into text with
+         segment- and word-level timestamps, detects the spoken language automatically, and supports about 99 languages.</p></div>
+    <div class="card"><h3>faster-whisper (by SYSTRAN)</h3>
+      <p>A reimplementation of Whisper on the <strong>CTranslate2</strong> inference engine. It is up to 4× faster than the
+         original implementation and uses less memory. It supports <strong>int8 quantisation</strong> on CPU and runs without PyTorch.</p></div>
+    <div class="card"><h3>Silero VAD</h3>
+      <p>A small voice-activity-detection model, run through ONNX Runtime and bundled with faster-whisper. With
+         <code>vad_filter=True</code>, long silences are skipped before transcription, which speeds up processing and reduces
+         "hallucinated" text during silence.</p></div>
+  </div>
+
+  <h3>Model sizes (set with <code>WHISPER_MODEL</code>)</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Model</th><th>Parameters</th><th>Trade-off</th></tr>
+    <tr><td><code>tiny</code></td><td>~39 M</td><td>Fastest, lowest accuracy. Used in automated testing.</td></tr>
+    <tr><td><code>base</code></td><td>~74 M</td><td>Fast, fair accuracy.</td></tr>
+    <tr><td><code>small</code> <span class="status s-ok">default</span></td><td>~244 M</td><td>A good balance for lectures on a CPU.</td></tr>
+    <tr><td><code>medium</code></td><td>~769 M</td><td>Better accuracy, noticeably slower on CPU.</td></tr>
+    <tr><td><code>large-v3</code> / <code>distil-large-v3</code></td><td>~1.55 B / ~756 M</td><td>Best accuracy. A GPU is recommended.</td></tr>
+  </table></div>
+
+  <h3>How the model is run</h3>
+  <ul class="tight">
+    <li><strong>Lazy loading:</strong> the model loads once, on the first transcription, and is reused afterwards. The weights download
+        automatically from Hugging Face (<code>Systran/faster-whisper-&lt;size&gt;</code>) into <code>data/models/</code>.</li>
+    <li><strong>Device selection:</strong> <code>WHISPER_DEVICE=auto</code> tries the NVIDIA GPU (CUDA) first. A one-second warm-up
+        encode checks that the CUDA libraries really work, and if they don't, the app <strong>falls back to CPU</strong> automatically.</li>
+    <li><strong>Precision:</strong> <code>int8</code> by default, which is fast with low memory use on CPU. Use <code>float16</code> on a GPU.</li>
+    <li><strong>Decoding options:</strong> beam search with <code>beam_size=5</code>, VAD filter on, word timestamps on, and
+        automatic language detection (or a fixed language through <code>WHISPER_LANGUAGE</code>).</li>
+    <li><strong>Input:</strong> the 16 kHz mono WAV produced by FFmpeg is read directly into a NumPy <code>float32</code> array and
+        passed to the model, so the app does not depend on faster-whisper's own decoder (see <a href="#testing">fixes</a>).</li>
+  </ul>
+  <div class="callout">Not in v1 yet: an LLM for summarised notes, definitions or MCQs. The transcript JSON is designed to feed into that step later (see <a href="#roadmap">roadmap</a>).</div>
+</section>
+
+<!-- 4 -->
+<section id="architecture">
+  <h2>Architecture</h2>
+  <p>A single FastAPI process serves the website and the JSON API, and runs one background worker thread for transcription.</p>
+  <div class="arch">
+    <div class="col"><h4>Client</h4>
+      <div class="box"><b>Browser</b>Server-rendered HTML pages (Jinja2) plus a little JavaScript</div>
+      <div class="box"><b>Upload form</b>XHR upload with progress bar</div>
+      <div class="box"><b>Lecture page</b>Player, transcript, status polling</div>
+    </div>
+    <div class="col"><h4>Server (FastAPI / Uvicorn)</h4>
+      <div class="box"><b>Session middleware</b>Signed cookie with <code>user_id</code></div>
+      <div class="box"><b>Routers</b><code>auth</code> · <code>lectures</code> · <code>api</code></div>
+      <div class="box"><b>Background worker</b>One thread; jobs queued on upload or retry</div>
+      <div class="box"><b>FFmpeg</b> (subprocess)Audio extraction</div>
+      <div class="box ai"><b>faster-whisper</b>Local speech-to-text</div>
+    </div>
+    <div class="col"><h4>Storage</h4>
+      <div class="box"><b>SQLite</b> <code>data/app.db</code>Users, lectures, transcripts (JSON)</div>
+      <div class="box"><b>Uploads</b> <code>data/uploads/</code>Original files, renamed to random UUIDs</div>
+      <div class="box"><b>Audio</b> <code>data/audio/</code>Extracted WAV per lecture</div>
+      <div class="box"><b>Models</b> <code>data/models/</code>Cached Whisper weights</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="pipeline">
+  <h2>Processing pipeline</h2>
+  <div class="pipeline">
+    <div class="step"><b>1. Upload</b><small>Teacher submits a file. It is streamed to disk in 1 MB chunks, with the size limit checked as it goes.</small></div>
+    <div class="arrow">→</div>
+    <div class="step"><b>2. Queue</b><small>A lecture row is created with status <code>uploaded</code>, and the job goes to the worker.</small></div>
+    <div class="arrow">→</div>
+    <div class="step"><b>3. FFmpeg</b><small>Drop the video, convert to mono, 16 kHz, 16-bit PCM WAV.</small></div>
+    <div class="arrow">→</div>
+    <div class="step"><b>4. Whisper</b><small>VAD filter, then transcription with segment and word timestamps. Progress is saved every 3 s.</small></div>
+    <div class="arrow">→</div>
+    <div class="step"><b>5. Store</b><small>Transcript row saved: language, full text, segments JSON. Status becomes <code>completed</code>.</small></div>
+  </div>
+
+  <h3>FFmpeg command</h3>
+<pre><code>ffmpeg -hide_banner -nostdin -y -i &lt;upload&gt; -vn -ac 1 -ar 16000 -c:a pcm_s16le data/audio/lecture_&lt;id&gt;.wav</code></pre>
+  <p class="muted">The flags mean: <code>-vn</code> drops the video, <code>-ac 1</code> makes it mono, and <code>-ar 16000</code> sets a 16 kHz sample rate, which is the rate Whisper works at. <code>pcm_s16le</code> writes uncompressed 16-bit samples. The command has a 1-hour timeout, and if it fails, the last lines of FFmpeg's error output are saved on the lecture.</p>
+
+  <h3>Lecture status lifecycle</h3>
+  <p>
+    <span class="status s-run">uploaded</span> →
+    <span class="status s-run">extracting_audio</span> →
+    <span class="status s-run">transcribing</span> →
+    <span class="status s-ok">completed</span> &nbsp;or&nbsp;
+    <span class="status s-bad">failed</span> (Retry sets the status back to <code>uploaded</code>)
+  </p>
+  <p class="muted">Students only see <code>completed</code> lectures. Teachers see all of their own lectures, whatever the status.</p>
+</section>
+
+<!-- 6 -->
+<section id="stack">
+  <h2>Tech stack</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Layer</th><th>Technology</th><th>Version tested</th><th>Purpose</th></tr>
+    <tr><td>Language</td><td>Python</td><td>3.14.5</td><td>Whole backend</td></tr>
+    <tr><td>Web framework</td><td>FastAPI (on Starlette)</td><td>0.143.2 (Starlette 1.8.0)</td><td>Routing, dependency injection, form handling, JSON API</td></tr>
+    <tr><td>ASGI server</td><td>Uvicorn</td><td>0.54.0</td><td>Runs the app</td></tr>
+    <tr><td>Templates</td><td>Jinja2</td><td>3.1.6</td><td>Server-rendered HTML pages</td></tr>
+    <tr><td>Forms / uploads</td><td>python-multipart</td><td>0.0.32</td><td>Parsing form and file uploads</td></tr>
+    <tr><td>Sessions</td><td>itsdangerous (Starlette SessionMiddleware)</td><td>2.2.0</td><td>Signed session cookies</td></tr>
+    <tr><td>ORM / DB</td><td>SQLAlchemy 2 + SQLite</td><td>2.1.4</td><td>Models and queries. SQLite runs in WAL mode.</td></tr>
+    <tr><td>Settings</td><td>pydantic-settings</td><td>2.16.0</td><td>Reads configuration from environment variables or a <code>.env</code> file</td></tr>
+    <tr><td>Passwords</td><td>bcrypt</td><td>5.0.0</td><td>Salted password hashing</td></tr>
+    <tr><td>Audio</td><td>FFmpeg (via imageio-ffmpeg fallback)</td><td>FFmpeg 7.1 bundled, imageio-ffmpeg 0.6.0</td><td>Audio extraction</td></tr>
+    <tr><td>Speech AI</td><td>faster-whisper + CTranslate2</td><td>1.2.1 / 4.8.3</td><td>Local Whisper transcription</td></tr>
+    <tr><td>VAD</td><td>Silero VAD via onnxruntime</td><td>1.31.0</td><td>Silence filtering</td></tr>
+    <tr><td>Arrays</td><td>NumPy</td><td>2.5.4</td><td>Reading WAV samples for the model</td></tr>
+    <tr><td>Frontend</td><td>Plain HTML, CSS, JavaScript</td><td>No framework</td><td>UI, upload progress, player sync, search</td></tr>
+  </table></div>
+</section>
+
+<!-- 7 -->
+<section id="modules">
+  <h2>Modules</h2>
+  <p>Project layout:</p>
+<pre><code>chtu/
+├── app/
+│   ├── main.py              App setup, middleware, startup/shutdown
+│   ├── config.py            Settings (env / .env)
+│   ├── database.py          Engine, sessions, Base
+│   ├── models.py            User, Lecture, Transcript + enums
+│   ├── security.py          Passwords, login session, access guards
+│   ├── templating.py        Jinja2 setup, flash messages, timestamp filter
+│   ├── routers/
+│   │   ├── auth.py          /signup /login /logout
+│   │   ├── lectures.py      Dashboard, upload, view, media, retry, delete
+│   │   └── api.py           JSON: status and transcript
+│   ├── services/
+│   │   ├── media.py         Upload saving, file-type detection, FFmpeg
+│   │   ├── transcription.py Whisper model loading and transcription
+│   │   └── worker.py        Background processing pipeline
+│   ├── templates/           base, index, login, signup, dashboard, lectures/detail
+│   └── static/style.css
+├── db/schema.sql            SQLite schema (reference)
+├── db/schema.postgres.sql   PostgreSQL schema
+├── docs/                    This document
+├── app.py                   Earlier Streamlit prototype (kept from the repo)
+├── requirements.txt
+├── .env.example
+└── README.md</code></pre>
+
+  <details class="module card" open><summary><code>app/main.py</code><span>Application entry point</span></summary><div class="body">
+    <ul class="tight">
+      <li>Creates the <code>FastAPI</code> app with a <em>lifespan</em> handler. On startup it creates the tables
+          (<code>Base.metadata.create_all</code>) and re-queues interrupted jobs (<code>worker.resume_pending()</code>). On shutdown it stops the worker.</li>
+      <li>Adds <code>SessionMiddleware</code>: cookie <code>ltn_session</code>, 14-day lifetime, <code>SameSite=Lax</code>, and an optional <code>Secure</code> flag.</li>
+      <li>Serves <code>/static</code>, registers the three routers, and redirects to <code>/login?next=…</code> whenever a login is required.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/config.py</code><span>Settings</span></summary><div class="body">
+    <ul class="tight">
+      <li>A <code>Settings</code> class (pydantic-settings) that reads environment variables or <code>.env</code>. See <a href="#config">Configuration</a>.</li>
+      <li><code>session_secret</code>: uses <code>SECRET_KEY</code> if it is set. Otherwise it generates a random key once and saves it
+          to <code>data/.secret_key</code>, so logins survive restarts.</li>
+      <li><code>ensure_dirs()</code> creates <code>data/</code>, <code>data/uploads/</code> and <code>data/audio/</code>.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/database.py</code><span>Database connection</span></summary><div class="body">
+    <ul class="tight">
+      <li>SQLAlchemy <code>engine</code> and <code>SessionLocal</code>, with <code>check_same_thread=False</code> for SQLite so the worker thread can use the database.</li>
+      <li>SQLite pragmas: <code>journal_mode=WAL</code> lets web requests read while the worker writes, and <code>foreign_keys=ON</code> makes cascading deletes work.</li>
+      <li><code>get_db()</code> is the FastAPI dependency that provides a database session to each request.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/models.py</code><span>Database models</span></summary><div class="body">
+    <ul class="tight">
+      <li>Enums: <code>Role</code> (teacher, student), <code>MediaType</code> (video, audio), and <code>LectureStatus</code>, which has an <code>is_processing</code> helper.</li>
+      <li><code>User</code> has many <code>Lecture</code>s. Each <code>Lecture</code> has one <code>Transcript</code>. Deletes cascade.</li>
+      <li><code>Transcript.as_dict()</code> builds the JSON returned by the API. Details in <a href="#database">Database</a>.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/security.py</code><span>Authentication and authorisation</span></summary><div class="body">
+    <ul class="tight">
+      <li><code>hash_password</code> / <code>verify_password</code>: bcrypt with a random salt for each password.</li>
+      <li><code>login_user</code> clears the session, then stores <code>user_id</code>. Clearing first prevents session fixation. <code>logout_user</code> clears the session.</li>
+      <li>Dependencies: <code>get_current_user</code> (may be none), <code>require_user</code> (redirects to login, or returns HTTP 401 for <code>/api/*</code>),
+          and <code>require_teacher</code> (HTTP 403 for students).</li>
+      <li><code>safe_next_url</code> only allows local paths in <code>?next=</code>, which prevents open-redirect attacks.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/templating.py</code><span>Templates and helpers</span></summary><div class="body">
+    <ul class="tight">
+      <li>Shared <code>Jinja2Templates</code> instance.</li>
+      <li>Flash messages stored in the session (<code>flash</code> / <code>get_flashed_messages</code>), for messages like "Uploaded", "Deleted" or errors.</li>
+      <li><code>timestamp</code> filter: converts seconds to <code>mm:ss</code> or <code>h:mm:ss</code>.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/routers/auth.py</code><span>Sign up, log in, log out</span></summary><div class="body">
+    <ul class="tight">
+      <li>Sign-up checks: name required, valid email format, role is teacher or student, password 8 to 72 bytes, passwords match, email not already used.
+          Errors re-display the form with the user's input kept.</li>
+      <li>Login gives the same "Invalid email or password" message for an unknown email or a wrong password, so it doesn't reveal which accounts exist.</li>
+      <li>All form posts end with an HTTP 303 redirect (the Post/Redirect/Get pattern).</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/routers/lectures.py</code><span>Lecture pages and actions</span></summary><div class="body">
+    <ul class="tight">
+      <li><code>get_viewable_lecture</code>: teachers can only open their own lectures, and students can only open completed ones. Anything else returns 404.</li>
+      <li><code>get_owned_lecture</code>: used for retry and delete, which only the owning teacher can do.</li>
+      <li>Upload: checks the file extension, saves under a random UUID name (the original name is kept in the database), rejects empty
+          files, creates the lecture row, and queues the job.</li>
+      <li>Media: <code>FileResponse</code> with HTTP Range support, so the player can seek through long videos.</li>
+      <li>Delete is blocked while processing. Otherwise it removes the database rows and both files.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/routers/api.py</code><span>JSON API</span></summary><div class="body">
+    <ul class="tight">
+      <li><code>GET /api/lectures/{id}/status</code> returns <code>{id, status, progress, error}</code>. The lecture page polls it.</li>
+      <li><code>GET /api/lectures/{id}/transcript</code> returns the full transcript JSON. Uses the same access rules as the web pages.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/services/media.py</code><span>Files and FFmpeg</span></summary><div class="body">
+    <ul class="tight">
+      <li><code>detect_media_type()</code>: decides video or audio from the file extension.</li>
+      <li><code>save_upload()</code>: writes the upload in 1 MB chunks and stops (deleting the partial file) once it exceeds <code>MAX_UPLOAD_MB</code>.</li>
+      <li><code>ffmpeg_binary()</code>: uses <code>FFMPEG_BINARY</code> if set, then <code>ffmpeg</code> on the PATH, then the FFmpeg binary bundled with <code>imageio-ffmpeg</code>.</li>
+      <li><code>extract_audio()</code>: runs the FFmpeg command and checks that the output is non-empty. Raises <code>MediaError</code> with a readable message on failure.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/services/transcription.py</code><span>Whisper integration</span></summary><div class="body">
+    <ul class="tight">
+      <li><code>get_model()</code>: loads the model once, guarded by a lock so only one thread can load it, with the warm-up check and CPU fallback.</li>
+      <li><code>load_wav()</code>: checks the WAV is 16 kHz, mono, 16-bit, then converts it to <code>float32</code> values between −1 and 1.</li>
+      <li><code>transcribe()</code>: iterates the segments as they are produced, calls <code>on_progress(segment_end / duration)</code>, and returns
+          <code>{model, language, language_probability, duration, text, segments}</code>.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/services/worker.py</code><span>Background pipeline</span></summary><div class="body">
+    <ul class="tight">
+      <li>A <code>ThreadPoolExecutor(max_workers=1)</code>: lectures are processed one at a time, because Whisper already uses every CPU core.</li>
+      <li><code>process_lecture()</code>: set the status, run FFmpeg, set the status, run Whisper (saving progress at most every 3 s), store the
+          transcript, mark it completed. On any error: roll back, mark it failed, save the error message.</li>
+      <li><code>resume_pending()</code>: on startup, re-queues lectures still marked uploaded, extracting audio or transcribing.</li>
+      <li>Handles lectures deleted while queued, and logs unexpected errors so the worker thread never stops silently.</li>
+    </ul></div></details>
+
+  <details class="module card"><summary><code>app/templates/</code> and <code>app/static/</code><span>User interface</span></summary><div class="body">
+    <ul class="tight">
+      <li><code>base.html</code>: top bar with the user's name and role badge, flash messages, page content area.</li>
+      <li><code>index.html</code> (landing page), <code>login.html</code>, <code>signup.html</code> (role picker cards).</li>
+      <li><code>dashboard.html</code>: teachers get the upload form (XHR with a progress bar) and their lectures with status. Students get the lecture list with teacher names.</li>
+      <li><code>lectures/detail.html</code>: player, status polling, failure details with Retry, and the transcript with clickable timestamps, current-line highlighting and search.</li>
+      <li><code>style.css</code>: CSS variables for light and dark themes, a responsive layout, and no external dependencies.</li>
+    </ul></div></details>
+</section>
+
+<!-- 8 -->
+<section id="database">
+  <h2>Database</h2>
+  <p>SQLite by default (<code>data/app.db</code>). Switching to PostgreSQL only needs a change to <code>DATABASE_URL</code>.
+     Reference schemas are in <code>db/schema.sql</code> and <code>db/schema.postgres.sql</code>.</p>
+  <p class="muted"><code>users</code> 1 ── * <code>lectures</code> 1 ── 1 <code>transcripts</code> (with <code>ON DELETE CASCADE</code>)</p>
+
+  <h3><code>users</code></h3>
+  <div class="table-wrap"><table>
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>INTEGER PK</td><td></td></tr>
+    <tr><td>name</td><td>VARCHAR(120)</td><td></td></tr>
+    <tr><td>email</td><td>VARCHAR(255)</td><td>Unique index; stored lower-case</td></tr>
+    <tr><td>password_hash</td><td>VARCHAR(255)</td><td>bcrypt hash</td></tr>
+    <tr><td>role</td><td>VARCHAR(20)</td><td><code>teacher</code> | <code>student</code></td></tr>
+    <tr><td>created_at</td><td>DATETIME</td><td>UTC</td></tr>
+  </table></div>
+
+  <h3><code>lectures</code></h3>
+  <div class="table-wrap"><table>
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>INTEGER PK</td><td></td></tr>
+    <tr><td>teacher_id</td><td>INTEGER FK → users.id</td><td>Indexed; cascade delete</td></tr>
+    <tr><td>title / description</td><td>VARCHAR(200) / TEXT</td><td></td></tr>
+    <tr><td>media_type</td><td>VARCHAR(10)</td><td><code>video</code> | <code>audio</code></td></tr>
+    <tr><td>original_filename</td><td>VARCHAR(255)</td><td>Name of the file as uploaded</td></tr>
+    <tr><td>media_path</td><td>VARCHAR(500)</td><td><code>data/uploads/&lt;uuid&gt;.&lt;ext&gt;</code></td></tr>
+    <tr><td>audio_path</td><td>VARCHAR(500)</td><td><code>data/audio/lecture_&lt;id&gt;.wav</code></td></tr>
+    <tr><td>duration</td><td>FLOAT</td><td>Seconds</td></tr>
+    <tr><td>status</td><td>VARCHAR(20)</td><td>Indexed. uploaded, extracting_audio, transcribing, completed or failed</td></tr>
+    <tr><td>progress</td><td>FLOAT</td><td>0 to 1</td></tr>
+    <tr><td>error</td><td>TEXT</td><td>Failure reason</td></tr>
+    <tr><td>created_at / updated_at</td><td>DATETIME</td><td></td></tr>
+  </table></div>
+
+  <h3><code>transcripts</code></h3>
+  <div class="table-wrap"><table>
+    <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+    <tr><td>id</td><td>INTEGER PK</td><td></td></tr>
+    <tr><td>lecture_id</td><td>INTEGER FK → lectures.id</td><td>Unique (one transcript per lecture); cascade delete</td></tr>
+    <tr><td>model</td><td>VARCHAR(100)</td><td>Whisper model used, e.g. <code>small</code></td></tr>
+    <tr><td>language / language_probability</td><td>VARCHAR(10) / FLOAT</td><td>Detected language</td></tr>
+    <tr><td>duration</td><td>FLOAT</td><td>Audio length in seconds</td></tr>
+    <tr><td>text</td><td>TEXT</td><td>Full transcript as plain text</td></tr>
+    <tr><td>segments</td><td>JSON</td><td>Timestamped segments (format below)</td></tr>
+    <tr><td>created_at</td><td>DATETIME</td><td></td></tr>
+  </table></div>
+
+  <h3>Transcript JSON format</h3>
+  <p>This is real output from the end-to-end test, shortened. Times are in seconds.</p>
+<pre><code>{
+  "lecture_id": 1,
+  "model": "tiny",
+  "language": "en",
+  "duration": 12.864,
+  "text": "Welcome to today's lecture on Python. We will discuss lists, dictionaries, and functions. ...",
+  "segments": [
+    {
+      "id": 1,
+      "start": 0.0,
+      "end": 2.2,
+      "text": "Welcome to today's lecture on Python.",
+      "avg_logprob": -0.1882,      // model confidence (closer to 0 = more confident)
+      "no_speech_prob": 0.0174,    // probability the segment is silence/noise
+      "words": [
+        { "start": 0.0,  "end": 0.52, "word": "Welcome", "probability": 0.8929 },
+        { "start": 0.52, "end": 0.74, "word": "to",      "probability": 0.985 },
+        ...
+      ]
+    }
+  ]
+}</code></pre>
+</section>
+
+<!-- 9 -->
+<section id="routes">
+  <h2>Routes &amp; API</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Method</th><th>Path</th><th>Who</th><th>What it does</th></tr>
+    <tr><td>GET</td><td><code>/</code></td><td>Anyone</td><td>Landing page. Logged-in users are sent to the dashboard.</td></tr>
+    <tr><td>GET, POST</td><td><code>/signup</code></td><td>Anyone</td><td>Registration form, then create account and log in</td></tr>
+    <tr><td>GET, POST</td><td><code>/login</code></td><td>Anyone</td><td>Login form; supports <code>?next=</code></td></tr>
+    <tr><td>POST</td><td><code>/logout</code></td><td>Logged in</td><td>Clears the session</td></tr>
+    <tr><td>GET</td><td><code>/dashboard</code></td><td>Logged in</td><td>Teacher: upload form and own lectures. Student: completed lectures.</td></tr>
+    <tr><td>POST</td><td><code>/lectures</code></td><td>Teacher</td><td>Upload (multipart: <code>title</code>, <code>description</code>, <code>file</code>)</td></tr>
+    <tr><td>GET</td><td><code>/lectures/{id}</code></td><td>Owner / students</td><td>Lecture page</td></tr>
+    <tr><td>GET</td><td><code>/lectures/{id}/media</code></td><td>Owner / students</td><td>Original file streamed, with Range support</td></tr>
+    <tr><td>POST</td><td><code>/lectures/{id}/retry</code></td><td>Owner</td><td>Re-queue a failed lecture</td></tr>
+    <tr><td>POST</td><td><code>/lectures/{id}/delete</code></td><td>Owner</td><td>Delete lecture, transcript and files</td></tr>
+    <tr><td>GET</td><td><code>/api/lectures/{id}/status</code></td><td>Owner / students</td><td><code>{id, status, progress, error}</code></td></tr>
+    <tr><td>GET</td><td><code>/api/lectures/{id}/transcript</code></td><td>Owner / students</td><td>Full transcript JSON</td></tr>
+    <tr><td>GET</td><td><code>/docs</code></td><td>Anyone</td><td>FastAPI's automatic interactive API documentation (Swagger UI)</td></tr>
+  </table></div>
+  <p class="muted">"Students" here means students can access <em>completed</em> lectures only.</p>
+</section>
+
+<!-- 10 -->
+<section id="security">
+  <h2>Authentication &amp; security</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Concern</th><th>How v1 handles it</th></tr>
+    <tr><td>Password storage</td><td>bcrypt with a random salt per password. Plain-text passwords are never stored. Passwords longer than 72 bytes are rejected, because bcrypt would otherwise silently ignore the rest.</td></tr>
+    <tr><td>Sessions</td><td>Signed cookie (HMAC via itsdangerous). The cookie holds only <code>user_id</code>. It is <code>SameSite=Lax</code>, and can be made HTTPS-only with <code>SECURE_COOKIES=true</code>.</td></tr>
+    <tr><td>Session fixation</td><td>The session is cleared before every login.</td></tr>
+    <tr><td>Role checks</td><td>Every upload, retry and delete route requires the teacher role, enforced on the server (HTTP 403 for students).</td></tr>
+    <tr><td>Data isolation</td><td>Teachers can't open other teachers' lectures, and students can't see unfinished lectures. Both get a 404, which doesn't reveal whether the lecture exists.</td></tr>
+    <tr><td>Account enumeration</td><td>Login gives the same error message for an unknown email and a wrong password.</td></tr>
+    <tr><td>Open redirect</td><td><code>?next=</code> only accepts local paths.</td></tr>
+    <tr><td>Uploads</td><td>Allowed extensions only. Files are saved under random names, so users can't control paths. The size limit is enforced while streaming. Media files are only served to users with access.</td></tr>
+    <tr><td>FFmpeg</td><td>Run with an argument list (no shell), so file names can't inject commands. Has a 1-hour timeout.</td></tr>
+    <tr><td>XSS</td><td>Jinja2 escapes all user content automatically.</td></tr>
+    <tr><td>Secrets</td><td><code>.env</code>, <code>data/</code> (database, uploads, secret key) and <code>.venv/</code> are git-ignored.</td></tr>
+  </table></div>
+  <div class="callout warn">Not yet: CSRF tokens (SameSite=Lax gives partial protection), rate limiting on login, email verification, and password reset.</div>
+</section>
+
+<!-- 11 -->
+<section id="config">
+  <h2>Configuration</h2>
+  <p>Set these as environment variables or in a <code>.env</code> file (copy <code>.env.example</code>). Every value has a default.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Variable</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>DATABASE_URL</code></td><td><code>sqlite:///data/app.db</code></td><td>Any SQLAlchemy URL, e.g. PostgreSQL</td></tr>
+    <tr><td><code>DATA_DIR</code></td><td><code>./data</code></td><td>Root folder for uploads, audio and models</td></tr>
+    <tr><td><code>SECRET_KEY</code></td><td>auto-generated</td><td>Session signing key. Set a fixed value in production.</td></tr>
+    <tr><td><code>SECURE_COOKIES</code></td><td><code>false</code></td><td>Set to <code>true</code> when serving over HTTPS</td></tr>
+    <tr><td><code>MAX_UPLOAD_MB</code></td><td><code>2048</code></td><td>Maximum upload size</td></tr>
+    <tr><td><code>FFMPEG_BINARY</code></td><td>(empty)</td><td>Path to ffmpeg. If empty: PATH, then the bundled binary.</td></tr>
+    <tr><td><code>WHISPER_MODEL</code></td><td><code>small</code></td><td>tiny, base, small, medium, large-v3, distil-large-v3, …</td></tr>
+    <tr><td><code>WHISPER_DEVICE</code></td><td><code>auto</code></td><td><code>auto</code>, <code>cpu</code> or <code>cuda</code></td></tr>
+    <tr><td><code>WHISPER_COMPUTE_TYPE</code></td><td><code>int8</code></td><td><code>int8</code> (CPU), <code>float16</code> (GPU), …</td></tr>
+    <tr><td><code>WHISPER_LANGUAGE</code></td><td>(empty = auto)</td><td>Force a language, e.g. <code>en</code> or <code>hi</code></td></tr>
+    <tr><td><code>WHISPER_BEAM_SIZE</code></td><td><code>5</code></td><td>Higher values can be slightly more accurate but are slower</td></tr>
+    <tr><td><code>WHISPER_WORD_TIMESTAMPS</code></td><td><code>true</code></td><td>Include per-word timings in the JSON</td></tr>
+  </table></div>
+</section>
+
+<!-- 12 -->
+<section id="setup">
+  <h2>Setup &amp; running</h2>
+<pre><code>git clone https://github.com/Parul2406/Lecture2Notes.git
+cd Lecture2Notes
+python -m venv .venv
+.venv\Scripts\activate            # Windows   (macOS/Linux: source .venv/bin/activate)
+pip install -r requirements.txt
+copy .env.example .env            # optional
+uvicorn app.main:app --reload</code></pre>
+  <p>Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>, sign up as a teacher, and upload a lecture.</p>
+  <ul class="tight">
+    <li><strong>No separate FFmpeg install needed:</strong> the app uses the binary bundled with <code>imageio-ffmpeg</code> when FFmpeg isn't on the PATH.</li>
+    <li><strong>First transcription is slower:</strong> the Whisper model downloads once (about 480 MB for <code>small</code>).</li>
+    <li><strong>NVIDIA GPU (optional):</strong> run <code>pip install nvidia-cublas-cu12 nvidia-cudnn-cu12</code> and set <code>WHISPER_COMPUTE_TYPE=float16</code>.
+        Without these libraries, the app falls back to CPU automatically.</li>
+    <li><strong>Interactive API docs:</strong> <a href="http://127.0.0.1:8000/docs">/docs</a>.</li>
+  </ul>
+</section>
+
+<!-- 13 -->
+<section id="testing">
+  <h2>Testing &amp; fixes</h2>
+  <p>An automated end-to-end test ran the full flow through FastAPI's <code>TestClient</code>, using the <code>tiny</code> model. The test
+     audio was a spoken clip generated with Windows text-to-speech, used both as a WAV file and wrapped into an MP4 video.</p>
+  <div class="callout ok"><strong>Result: all checks passed.</strong> Both lectures completed. The 12.9 s clip was transcribed word-for-word correctly:
+    <em>"Welcome to today's lecture on Python. We will discuss lists, dictionaries, and functions. A list is an ordered collection of items. A dictionary maps keys to values."</em>
+    Once the model was loaded, transcription took about 1 s on CPU.</div>
+
+  <h3>What was tested</h3>
+  <ul class="tight">
+    <li>Logged-out users are redirected to login; invalid sign-up input is rejected; duplicate emails are rejected regardless of letter case.</li>
+    <li>A wrong password is rejected; an external <code>?next=//evil.com</code> redirect is blocked.</li>
+    <li>Unsupported file types are rejected; video (MP4) and audio (WAV) uploads both go through the whole pipeline.</li>
+    <li>The status API, transcript API, lecture page rendering, and HTTP Range requests (206 Partial Content) for media.</li>
+    <li>Students can see completed lectures and transcripts, but can't upload or delete (403).</li>
+    <li>A teacher deletes a lecture; afterwards it returns 404.</li>
+  </ul>
+
+  <h3>Problems found and fixed</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Problem</th><th>Cause</th><th>Fix</th></tr>
+    <tr><td><code>open() got an unexpected keyword argument 'metadata_errors'</code></td>
+        <td>The newest PyAV (19.x) is incompatible with faster-whisper 1.2.1's built-in audio decoder.</td>
+        <td>The app reads FFmpeg's 16 kHz WAV itself with Python's <code>wave</code> module and NumPy, then passes the samples straight to Whisper. PyAV is no longer used for decoding.</td></tr>
+    <tr><td><code>Library cublas64_12.dll is not found</code>, then a hang</td>
+        <td>The machine has an NVIDIA GPU, so <code>device=auto</code> chose CUDA, but the CUDA libraries weren't installed.</td>
+        <td>A warm-up encode while loading the model checks that the device works. If it fails, the app logs a warning and reloads the model on CPU.</td></tr>
+    <tr><td>FFmpeg not installed on the system</td>
+        <td>No <code>ffmpeg</code> on the PATH.</td>
+        <td>Falls back to the FFmpeg 7.1 binary bundled with <code>imageio-ffmpeg</code>.</td></tr>
+  </table></div>
+</section>
+
+<!-- 14 -->
+<section id="repo">
+  <h2>Repository</h2>
+  <p>GitHub: <a href="https://github.com/Parul2406/Lecture2Notes">github.com/Parul2406/Lecture2Notes</a>, branch <code>main</code>.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Commit</th><th>Author</th><th>Description</th></tr>
+    <tr><td><code>8d8ceb3</code></td><td>Parul2406</td><td><em>Create app.py</em>: the original Streamlit prototype with an upload page and video/audio preview, but no processing.</td></tr>
+    <tr><td><code>7d7f61f</code></td><td>Parul2406</td><td><em>Add v1 web app: auth, lecture upload, FFmpeg + Whisper transcription</em>: everything described in this document.</td></tr>
+  </table></div>
+  <p class="muted">The Streamlit <code>app.py</code> was kept when the v1 code was added. It doesn't affect the new app, because <code>uvicorn app.main:app</code> loads the <code>app/</code> package.
+     It can be removed once it's no longer needed. Not committed (git-ignored): <code>.venv/</code>, <code>data/</code> and <code>.env</code>.</p>
+</section>
+
+<!-- 15 -->
+<section id="roadmap">
+  <h2>Limitations &amp; roadmap</h2>
+  <div class="grid">
+    <div class="card"><h3>Current limitations</h3>
+      <ul class="tight">
+        <li>One background worker inside the web process, so one lecture is transcribed at a time.</li>
+        <li>Tables are created with <code>create_all</code>; there are no migrations yet.</li>
+        <li>Files are stored on the local disk.</li>
+        <li>No courses or enrollment: every student sees every completed lecture.</li>
+        <li>No CSRF tokens, password reset or email verification.</li>
+      </ul></div>
+    <div class="card"><h3>Possible next steps</h3>
+      <ul class="tight">
+        <li><strong>Notes generation:</strong> send the transcript to an LLM to produce structured notes, key definitions, summaries and MCQs, with each item linked back to its timestamps.</li>
+        <li>Export to PDF or Markdown; teacher editing of transcripts.</li>
+        <li>Courses and enrollment, so students only see their own classes.</li>
+        <li>Job queue (Celery, RQ or Arq with Redis) and GPU workers to scale up.</li>
+        <li>Alembic migrations, PostgreSQL, and S3-compatible file storage.</li>
+        <li>Speaker labels (diarisation) and translation.</li>
+      </ul></div>
+  </div>
+</section>
+</main>
+</div>
+<script>
+  // Theme toggle (remembers the choice in this browser)
+  const root = document.documentElement;
+  try { const t = localStorage.getItem("l2n-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("l2n-theme", root.dataset.theme); } catch (e) {}
+  });
+  // Expand all module sections when printing
+  addEventListener("beforeprint", () => document.querySelectorAll("details").forEach(d => d.open = true));
+</script>
+</body>
+</html>

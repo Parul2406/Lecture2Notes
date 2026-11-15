@@ -23,5 +23,11 @@ def format_timestamp(seconds: float | None) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
-templates.env.globals.update(app_name=settings.app_name, get_flashed_messages=get_flashed_messages)
+templates.env.globals.update(
+    app_name=settings.app_name,
+    get_flashed_messages=get_flashed_messages,
+    # Limits shown in forms; globals so no page can break by forgetting to pass them.
+    max_upload_mb=settings.max_upload_mb,
+    max_download_hours=settings.max_download_hours,
+)
 templates.env.filters["timestamp"] = format_timestamp

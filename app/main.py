@@ -7,8 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import BASE_DIR, settings
-from app.database import Base, engine
-from app.routers import api, auth, lectures
+from app.database import Base, add_missing_columns, engine
+from app.routers import api, auth, edit, lectures, share
 from app.security import LoginRequired
 from app.services import worker
 
@@ -17,7 +17,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(nam
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(engine)  # v1: no migrations yet; switch to Alembic once the schema settles
+    Base.metadata.create_all(engine)  # no Alembic yet: create new tables, then add new columns
+    add_missing_columns()
     worker.resume_pending()
     yield
     worker.shutdown()
@@ -37,6 +38,8 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="s
 app.include_router(auth.router)
 app.include_router(lectures.router)
 app.include_router(api.router)
+app.include_router(share.router)
+app.include_router(edit.router)
 
 
 @app.exception_handler(LoginRequired)

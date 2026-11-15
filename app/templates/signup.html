@@ -1,29 +1,45 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Sign up · {{ app_name }}{% endblock %}
-{% block content %}
-<div class="card narrow">
-  <h1>Create an account</h1>
-  {% if errors %}
-    <div class="flash flash-error"><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
-  {% endif %}
-  <form method="post" action="/signup" class="stack">
-    <fieldset class="roles">
-      <legend>I am a</legend>
-      <label class="role-option">
-        <input type="radio" name="role" value="teacher" {% if form.role == 'teacher' %}checked{% endif %} required>
-        <span><strong>Teacher</strong><small>Upload lectures</small></span>
-      </label>
-      <label class="role-option">
-        <input type="radio" name="role" value="student" {% if form.role == 'student' %}checked{% endif %}>
-        <span><strong>Student</strong><small>Read lecture transcripts</small></span>
-      </label>
-    </fieldset>
-    <label>Full name <input name="name" value="{{ form.name or '' }}" required maxlength="120" autocomplete="name"></label>
-    <label>Email <input type="email" name="email" value="{{ form.email or '' }}" required autocomplete="email"></label>
-    <label>Password <input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
-    <label>Confirm password <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></label>
-    <button class="btn">Sign up</button>
-  </form>
-  <p class="muted">Already registered? <a href="/login">Log in</a></p>
-</div>
+{% block main %}
+<main class="auth">
+  {% include "_auth_side.html" %}
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1>Create your account</h1>
+      <p class="sub">It takes less than a minute.</p>
+      {% if errors %}
+        <div class="alert alert-error" style="margin-bottom:16px">{{ icon("alert", "icon-sm") }}
+          <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+      {% endif %}
+      <form method="post" action="/signup" class="stack">
+        <fieldset class="roles">
+          <legend>I am a</legend>
+          <label class="role-option">
+            <input type="radio" name="role" value="teacher" {% if form.role == 'teacher' %}checked{% endif %} required>
+            {{ icon("teacher") }}
+            <strong>Teacher</strong><small>Add lectures and publish notes</small>
+          </label>
+          <label class="role-option">
+            <input type="radio" name="role" value="student" {% if form.role == 'student' %}checked{% endif %}>
+            {{ icon("student") }}
+            <strong>Student</strong><small>Watch, read notes and take quizzes</small>
+          </label>
+        </fieldset>
+        <label class="field"><span>Full name</span>
+          <input name="name" value="{{ form.name or '' }}" required maxlength="120" autocomplete="name" placeholder="Your name"></label>
+        <label class="field"><span>Email</span>
+          <input type="email" name="email" value="{{ form.email or '' }}" required autocomplete="email" placeholder="you@school.edu"></label>
+        <div class="row" style="align-items:flex-start">
+          <label class="field" style="flex:1;min-width:160px"><span>Password</span>
+            <input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="8+ characters"></label>
+          <label class="field" style="flex:1;min-width:160px"><span>Confirm password</span>
+            <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="Repeat password"></label>
+        </div>
+        <button class="btn btn-lg btn-block">Create account {{ icon("arrow-right", "icon-sm") }}</button>
+      </form>
+      <p class="auth-foot">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+  </div>
+</main>
 {% endblock %}
