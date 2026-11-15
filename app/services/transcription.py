@@ -15,6 +15,32 @@ SAMPLE_RATE = 16000  # must match the -ar used in media.extract_audio
 
 _model = None
 _model_lock = threading.Lock()
+_dll_dirs_added = False
+
+
+def _add_cuda_dll_dirs() -> None:
+    """Let CTranslate2 find the CUDA libraries installed as pip packages (nvidia-cublas-cu12,
+    nvidia-cudnn-cu12). On Windows their DLLs live in site-packages/nvidia/*/bin, which isn't on
+    the DLL search path by default."""
+    global _dll_dirs_added
+    if _dll_dirs_added or os.name != "nt":
+        return
+    _dll_dirs_added = True
+    try:
+        import nvidia
+    except ImportError:
+        return  # CUDA packages not installed: Whisper will use the CPU
+    for root in getattr(nvidia, "__path__", []):
+        for bin_dir in Path(root).glob("*/bin"):
+            os.add_dll_directory(str(bin_dir))
+            os.environ["PATH"] = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
+
+
+def _compute_type(device: str) -> str:
+    """'auto' = float16 on the GPU (fast, accurate), int8 on the CPU (fast, low memory)."""
+    if settings.whisper_compute_type != "auto":
+        return settings.whisper_compute_type
+    return "float16" if device == "cuda" else "int8"
 
 
 def get_model():
@@ -23,20 +49,26 @@ def get_model():
     with _model_lock:
         if _model is None:
             os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")  # noisy on Windows
+            _add_cuda_dll_dirs()
+            import ctranslate2
             from faster_whisper import WhisperModel
             from faster_whisper.audio import pad_or_trim
 
             def load(device: str):
+                if device == "auto":
+                    device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+                compute_type = _compute_type(device)
                 log.info(
                     "Loading Whisper model '%s' (device=%s, compute_type=%s)",
-                    settings.whisper_model, device, settings.whisper_compute_type,
+                    settings.whisper_model, device, compute_type,
                 )
                 model = WhisperModel(
                     settings.whisper_model,
                     device=device,
-                    compute_type=settings.whisper_compute_type,
+                    compute_type=compute_type,
                     download_root=str(settings.data_dir / "models"),
                 )
+                model.device_used = device
                 # Missing CUDA libraries (cuBLAS/cuDNN) only surface on the first encode,
                 # so run a tiny one now instead of failing mid-lecture.
                 features = model.feature_extractor(np.zeros(SAMPLE_RATE, dtype=np.float32))

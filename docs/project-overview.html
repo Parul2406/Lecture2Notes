@@ -235,7 +235,10 @@ ul.tight li { margin: 3px 0; }
     <tr><td><code>large-v3</code> / <code>distil-large-v3</code></td><td>~1.55 B / ~756 M</td><td>Best accuracy; a GPU is recommended</td></tr>
   </table></div>
   <ul class="tight">
-    <li><strong>Device:</strong> <code>WHISPER_DEVICE=auto</code> tries CUDA first and falls back to CPU if the CUDA libraries are missing (checked with a warm-up encode).</li>
+    <li><strong>Device:</strong> <code>WHISPER_DEVICE=auto</code> uses the NVIDIA GPU when the CUDA libraries are installed
+        (<code>pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12&gt;=9,&lt;10"</code>; the app adds their folders to the DLL path itself),
+        and falls back to CPU otherwise (checked with a warm-up encode). Precision is float16 on the GPU and int8 on the CPU.</li>
+    <li><strong>Speed:</strong> on the RTX 3050 laptop GPU, a 5.7-minute lecture transcribes in about 25 s (~14x real time, under 1 GB of GPU memory).</li>
     <li><strong>Input:</strong> FFmpeg's 16 kHz mono WAV is read with NumPy and passed straight to the model, avoiding faster-whisper's own decoder.</li>
   </ul>
 </section>
@@ -469,7 +472,7 @@ ul.tight li { margin: 3px 0; }
     <tr><td><code>SECRET_KEY</code>, <code>SECURE_COOKIES</code></td><td>auto / <code>false</code></td><td>Session signing; HTTPS-only cookies</td></tr>
     <tr><td><code>MAX_UPLOAD_MB</code>, <code>MAX_DOWNLOAD_HOURS</code></td><td><code>2048</code>, <code>4</code></td><td>Upload/import size and length limits</td></tr>
     <tr><td><code>PUBLIC_BASE_URL</code></td><td>(empty)</td><td>Address used in share links, e.g. <code>http://192.168.1.20:8000</code></td></tr>
-    <tr><td><code>WHISPER_MODEL</code>, <code>WHISPER_DEVICE</code>, <code>WHISPER_COMPUTE_TYPE</code>, <code>WHISPER_LANGUAGE</code></td><td><code>small</code>, <code>auto</code>, <code>int8</code>, auto</td><td>Speech recognition</td></tr>
+    <tr><td><code>WHISPER_MODEL</code>, <code>WHISPER_DEVICE</code>, <code>WHISPER_COMPUTE_TYPE</code>, <code>WHISPER_LANGUAGE</code></td><td><code>small</code>, <code>auto</code>, <code>auto</code> (float16 on GPU, int8 on CPU), auto</td><td>Speech recognition</td></tr>
     <tr><td><code>NOTES_ENABLED</code>, <code>NOTES_AUTO</code></td><td><code>true</code>, <code>true</code></td><td>Notes on/off; generate automatically after transcription</td></tr>
     <tr><td><code>OLLAMA_URL</code>, <code>NOTES_MODEL</code></td><td><code>http://127.0.0.1:11434</code>, <code>gemma4</code></td><td>Local LLM server and model</td></tr>
     <tr><td><code>NOTES_CHUNK_WORDS</code>, <code>NOTES_NUM_CTX</code>, <code>NOTES_TIMEOUT</code></td><td><code>1500</code>, <code>8192</code>, <code>900</code></td><td>Words per model call, context window, seconds per call</td></tr>
@@ -497,6 +500,7 @@ uvicorn app.main:app --reload     # add --host 0.0.0.0 to let students on your n
   <ul class="tight">
     <li><strong>FFmpeg</strong> isn't required separately: the binary bundled with <code>imageio-ffmpeg</code> is used if none is on the PATH.</li>
     <li><strong>Whisper</strong> downloads its model on first use (~480 MB for <code>small</code>).</li>
+    <li><strong>NVIDIA GPU:</strong> <code>pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12&gt;=9,&lt;10"</code> once (~1.3 GB) to transcribe on the GPU; otherwise the CPU is used.</li>
     <li><strong>Ollama</strong> must be running for notes; if it isn't, the lecture page says so and notes can be retried.</li>
     <li><strong>YouTube imports</strong> need Node.js or Deno (picked up automatically). If imports start failing, update yt-dlp: <code>pip install -U "yt-dlp[default]"</code>.</li>
   </ul>

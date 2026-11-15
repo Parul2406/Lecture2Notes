@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     whisper_model: str = "small"
     whisper_device: str = "auto"
-    whisper_compute_type: str = "int8"
+    whisper_compute_type: str = "auto"  # auto = float16 on GPU, int8 on CPU
     whisper_language: str = ""
     whisper_beam_size: int = 5
     whisper_word_timestamps: bool = True
