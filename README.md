@@ -46,11 +46,12 @@ Open http://127.0.0.1:8000 and log in with a demo account, or sign up, then add 
   used, so it works with no extra install. Set `FFMPEG_BINARY` to force a specific binary.
 - **Whisper model:** downloaded to `data/models/` the first time a lecture is transcribed. `WHISPER_MODEL=small` is
   the default; use `tiny`/`base` for speed or `medium`/`large-v3` for accuracy.
-- **NVIDIA GPU (recommended):** install the CUDA libraries once with
-  `pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12>=9,<10"` (about 1.3 GB). The app finds them automatically and,
-  with the defaults (`WHISPER_DEVICE=auto`, `WHISPER_COMPUTE_TYPE=auto`), runs Whisper on the GPU in float16.
-  On an RTX 3050 laptop a 5.7-minute lecture took 25 s (about 14x real time) instead of minutes on the CPU.
-  Without the libraries, or without an NVIDIA GPU, it falls back to the CPU (int8) and logs a warning.
+- **GPU or CPU, picked automatically:** `requirements.txt` installs NVIDIA's CUDA libraries (~1.3 GB) on
+  Windows and Linux x86-64 and skips them on macOS and ARM. At runtime the app checks for a usable NVIDIA GPU and
+  transcribes on it in float16 (an RTX 3050 laptop GPU does about 10-12x real time: a 1-hour lecture in ~5-6 minutes);
+  otherwise it uses the CPU in int8 (~3.5x real time). If the GPU fails mid-lecture (for example out of memory
+  while the notes model is using it), that lecture continues on the CPU instead of failing. The server log and the
+  teacher's **Settings → System** card show which one is in use. Force one with `WHISPER_DEVICE=cpu` or `cuda`.
 - **Notes:** install [Ollama](https://ollama.com/download), then download the model once with `ollama pull gemma4`
   (about 9.6 GB). Ollama runs in the background and uses the GPU when one is available. If Ollama isn't running,
   everything else still works and the lecture page shows what to do. See [Notes](#notes) below.

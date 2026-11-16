@@ -117,9 +117,16 @@ def logout(request: Request):
 # ---------------------------------------------------------------- account settings
 
 def _settings_page(request: Request, user: User, errors: dict | None = None, form: dict | None = None, status_code: int = 200):
+    system = None
+    if user.is_teacher:
+        from app.config import settings
+        from app.services import transcription
+
+        system = {"transcription": transcription.hardware_summary(), "whisper_model": settings.whisper_model,
+                  "notes_model": settings.notes_model if settings.notes_enabled else None}
     return templates.TemplateResponse(
         request, "settings.html",
-        {"user": user, "errors": errors or {}, "form": form or {"name": user.name, "email": user.email}},
+        {"user": user, "errors": errors or {}, "form": form or {"name": user.name, "email": user.email}, "system": system},
         status_code=status_code,
     )
 

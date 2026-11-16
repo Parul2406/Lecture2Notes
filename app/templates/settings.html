@@ -41,6 +41,22 @@
     </form>
   </section>
 
+  {% if system %}
+  <section class="card settings-card">
+    <div class="card-head"><h2>{{ icon("cpu") }} System</h2></div>
+    <div class="card-body stack" style="gap:12px">
+      <div class="row" style="justify-content:space-between">
+        <div><strong>Transcription</strong><div class="muted small">Whisper “{{ system.whisper_model }}”, picked automatically for this computer</div></div>
+        <span class="pill {{ 'pill-ok' if system.transcription.device == 'cuda' else '' }}">{{ icon("zap" if system.transcription.device == 'cuda' else "cpu", "icon-sm") }} {{ system.transcription.detail }} &middot; {{ system.transcription.compute_type }}</span>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <div><strong>Notes and quizzes</strong><div class="muted small">Local language model via Ollama</div></div>
+        <span class="pill">{{ system.notes_model or "turned off" }}</span>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <section class="card settings-card">
     <div class="card-head"><h2>{{ icon("sun") }} Appearance</h2></div>
     <div class="card-body row" style="justify-content:space-between">

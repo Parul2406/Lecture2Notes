@@ -409,8 +409,9 @@ def process_lecture(lecture_id: int) -> None:
             result = transcription.transcribe_killable(audio_path, on_progress=on_progress, check_stop=check_stop)
             check_stop()
             log.info(
-                "Lecture %s transcribed: %d segments, %.0fs audio in %.0fs",
-                lecture.id, len(result["segments"]), result["duration"], time.monotonic() - started,
+                "Lecture %s transcribed on the %s: %d segments, %.0fs audio in %.0fs",
+                lecture.id, "GPU" if result.get("device") == "cuda" else "CPU",
+                len(result["segments"]), result["duration"], time.monotonic() - started,
             )
 
             # 3. Store

@@ -10,7 +10,7 @@ from app.config import BASE_DIR, settings
 from app.database import Base, add_missing_columns, engine
 from app.routers import api, auth, edit, lectures, share
 from app.security import LoginRequired
-from app.services import worker
+from app.services import transcription, worker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 
@@ -19,6 +19,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(nam
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)  # no Alembic yet: create new tables, then add new columns
     add_missing_columns()
+    hw = transcription.hardware_summary()
+    logging.getLogger("app").info("Transcription will run on %s, %s", hw["detail"], hw["compute_type"])
     worker.resume_pending()
     yield
     worker.shutdown()

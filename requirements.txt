@@ -7,6 +7,11 @@ sqlalchemy>=2.0.36
 pydantic-settings>=2.4
 bcrypt>=4.2
 faster-whisper>=1.1
+# NVIDIA GPU support for Whisper (CUDA 12 cuBLAS + cuDNN 9, ~1.3 GB). Installed only where CUDA exists
+# (Windows/Linux on x86-64); skipped on macOS and ARM. The app detects a usable NVIDIA GPU at runtime and
+# uses it (float16), otherwise it runs on the CPU (int8), so these are harmless on machines without one.
+nvidia-cublas-cu12>=12.4; (sys_platform == "win32" or sys_platform == "linux") and (platform_machine == "AMD64" or platform_machine == "x86_64")
+nvidia-cudnn-cu12>=9,<10; (sys_platform == "win32" or sys_platform == "linux") and (platform_machine == "AMD64" or platform_machine == "x86_64")
 numpy>=1.26
 # Bundled ffmpeg binary, used only when ffmpeg is not on PATH
 imageio-ffmpeg>=0.5
